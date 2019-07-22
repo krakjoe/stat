@@ -38,7 +38,8 @@ zend_stat_buffer_t* zend_stat_buffer_startup(zend_long slots) {
     zend_stat_buffer_t *buffer = zend_stat_map(size);
 
     if (!buffer) {
-        /* error */
+        zend_error(E_WARNING,
+            "[STAT] Failed to allocate shared memory for buffer");
         return NULL;
     }
 
