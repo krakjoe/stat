@@ -39,8 +39,7 @@
 #include "zend_stat_strings.h"
 
 static zend_stat_buffer_t*     zend_stat_buffer = NULL;
-static zend_bool               zend_stat_started = 0;
-static double                  zend_stat_started_time = 0.0;
+static double                  zend_stat_started = 0;
 ZEND_TLS zend_stat_sampler_t   zend_stat_sampler;
 
 static int  zend_stat_startup(zend_extension*);
@@ -106,8 +105,7 @@ static int zend_stat_startup(zend_extension *ze) {
         return SUCCESS;
     }
 
-    zend_stat_started = 1;
-    zend_stat_started_time = zend_stat_time();
+    zend_stat_started = zend_stat_time();
 
     ze->handle = 0;
 
@@ -115,7 +113,7 @@ static int zend_stat_startup(zend_extension *ze) {
 }
 
 static void zend_stat_shutdown(zend_extension *ze) {
-    if (!zend_stat_started) {
+    if (0 == zend_stat_started) {
         return;
     }
 
@@ -135,7 +133,7 @@ static void zend_stat_activate(void) {
     ZEND_TSRMLS_CACHE_UPDATE();
 #endif
 
-    if (!zend_stat_started) {
+    if (0 == zend_stat_started) {
         return;
     }
 
@@ -150,8 +148,14 @@ static void zend_stat_deactivate(void) {
     zend_stat_sampler_deactivate(&zend_stat_sampler);
 }
 
-double zend_stat_started_at(void) {
-    return zend_stat_started_time;
+double zend_stat_time(void) {
+    struct timespec ts;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != SUCCESS) {
+        return (double) -1;
+    }
+    
+    return ((double) ts.tv_sec + ts.tv_nsec / 1000000000.00) - zend_stat_started;
 }
 
 #if defined(ZTS) && defined(COMPILE_DL_STAT)

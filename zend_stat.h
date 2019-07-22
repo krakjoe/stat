@@ -35,17 +35,7 @@
 
 #include <unistd.h>
 
-double zend_stat_started_at(void);
-
-static zend_always_inline double zend_stat_time(void) {
-    struct timespec ts;
-
-    if (clock_gettime(CLOCK_MONOTONIC, &ts) != SUCCESS) {
-        return (double) -1;
-    }
-    
-    return (double) ts.tv_sec + ts.tv_nsec / 1000000000.00;
-}
+double zend_stat_time(void);
 
 static zend_always_inline void* zend_stat_map(zend_long size) {
     void *mapped = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, 0, 0);

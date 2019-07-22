@@ -103,9 +103,7 @@ static void zend_stat_sample(zend_stat_sampler_t *arg) {
     zend_stat_sample_t sample = zend_stat_sample_empty;
 
     sample.pid = arg->pid;
-    sample.elapsed =
-        zend_stat_time() -
-        zend_stat_started_at();
+    sample.elapsed = zend_stat_time();
 
     zend_stat_sampler_read(arg->pid,
         ZEND_HEAP_STAT_ADDRESS(arg->heap),
