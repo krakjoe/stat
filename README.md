@@ -70,7 +70,11 @@ Stat will send each sample as a json encoded packet, one sample per line with th
         }
     }
 
-*Note: Location will only be present for user code, symbol and location may be missing if they cannot be read (this is normal)*
+Notes:
+
+  - the absense`location` and `symbol` signifies that the executor is not currently executing
+  - the presence of `location` and absense of `symbol` signifies that the executor is currently executing in a file
+  - the absense of `location` and presence of `symbol` sifnifies that the executor is currently internal code
 
 ### Internals
 
