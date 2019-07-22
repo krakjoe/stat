@@ -27,6 +27,7 @@
 #include "zend_API.h"
 #include "zend_extensions.h"
 
+#include <time.h>
 #include <sys/mman.h>
 #include <sys/uio.h>
 #include <sys/syscall.h>
