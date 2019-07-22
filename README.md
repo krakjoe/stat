@@ -66,11 +66,13 @@ Stat will send each sample as a json encoded packet, one sample per line with th
             "file":  "string",
             "line":  int
         },
-        "scope": "string",
-        "function": "string"
+        "symbol": {
+            "scope": "string",
+            "function": "string"
+        }
     }
 
-*Note: The `scope` element will only be present for methods, and location only present for user code*
+*Note: Location will only be present for user code, symbol and location may be missing if they cannot be read (this is normal)*
 
 ### Internals
 

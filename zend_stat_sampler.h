@@ -41,8 +41,10 @@ typedef struct _zend_stat_sample_t {
         zend_stat_string_t  *file;
         uint32_t             line;
     } location;
-    zend_stat_string_t      *scope;
-    zend_stat_string_t      *function;
+    struct {
+        zend_stat_string_t  *scope;
+        zend_stat_string_t  *function;
+    } symbol;
 } zend_stat_sample_t;
 
 #define ZEND_STAT_SAMPLE_UNUSED 0
@@ -51,6 +53,10 @@ typedef struct _zend_stat_sample_t {
     (((char*) s) + XtOffsetOf(zend_stat_sample_t, type))
 #define ZEND_STAT_SAMPLE_DATA_SIZE \
     (sizeof(zend_stat_sample_t) - XtOffsetOf(zend_stat_sample_t, type))
+
+const static zend_stat_sample_t zend_stat_sample_empty = {
+    {0, 0}, ZEND_STAT_SAMPLE_UNUSED, 0, 0, {0, 0, 0, 0}, {NULL, 0}, {NULL, NULL}
+};
 
 typedef struct _zend_heap_header_t zend_heap_header_t;
 

@@ -95,10 +95,11 @@ void zend_stat_buffer_insert(zend_stat_buffer_t *buffer, zend_stat_sample_t *inp
 }
 
 void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
-    zend_stat_sample_t *sample, sampled;
+    zend_stat_sample_t *sample;
     zend_ulong tried = 0;
 
     while (tried++ < buffer->slots) {
+        zend_stat_sample_t sampled = zend_stat_sample_empty;
         zend_bool _unbusy = 0,
                   _busy   = 1,
                   _unused = 0,
@@ -120,8 +121,6 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
                 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))) {
             continue;
         }
-
-        sampled.type = ZEND_STAT_SAMPLE_UNUSED;
 
         if (EXPECTED(__atomic_compare_exchange(
                 &sample->state.used,
@@ -156,7 +155,7 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
         zend_stat_io_write_int_ex(fd, sampled.memory.rpeak, return);
         zend_stat_io_write_literal_ex(fd, "}, ", return);
 
-        if (sample->type == ZEND_USER_FUNCTION) {
+        if (sampled.location.file) {
             zend_stat_io_write_literal_ex(fd, "\"location\": {", return);
             zend_stat_io_write_literal_ex(fd, "\"file\": \"", return);
             zend_stat_io_write_string_ex(fd, sampled.location.file, return);
@@ -167,15 +166,23 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
             zend_stat_io_write_literal_ex(fd, "}, ", return);
         }
 
-        if (sample->scope) {
-            zend_stat_io_write_literal_ex(fd, "\"scope\": \"", return);
-            zend_stat_io_write_string_ex(fd, sampled.scope, return);
-            zend_stat_io_write_literal_ex(fd, "\", ", return);
-        }
+        if (sampled.symbol.scope || sampled.symbol.function) {
+            zend_stat_io_write_literal_ex(fd, "\"symbol\": {", return);
 
-        zend_stat_io_write_literal_ex(fd, "\"function\": \"", return);
-        zend_stat_io_write_string_ex(fd, sampled.function, return);
-        zend_stat_io_write_literal_ex(fd, "\" ", return);
+            if (sampled.symbol.scope) {
+                zend_stat_io_write_literal_ex(fd, "\"scope\": \"", return);
+                zend_stat_io_write_string_ex(fd, sampled.symbol.scope, return);
+                zend_stat_io_write_literal_ex(fd, "\", ", return);
+            }
+
+            if (sampled.symbol.function) {
+                zend_stat_io_write_literal_ex(fd, "\"function\": \"", return);
+                zend_stat_io_write_string_ex(fd, sampled.symbol.function, return);
+                zend_stat_io_write_literal_ex(fd, "\" ", return);
+            }
+
+            zend_stat_io_write_literal_ex(fd, "}", return);
+        }
 
         zend_stat_io_write_literal_ex(fd, "}\n", return);
     }

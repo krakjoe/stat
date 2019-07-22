@@ -33,10 +33,6 @@ struct _zend_heap_header_t {
     size_t rpeak;
 };
 
-static zend_stat_sample_t zend_stat_sample_empty = {
-    {0, 0}, ZEND_STAT_SAMPLE_UNUSED, 0, 0, {0, 0, 0, 0}, {NULL, 0}, NULL, NULL
-};
-
 #if defined(ZTS)
 # if defined(TSRMG_FAST_BULK)
 #   define ZEND_EXECUTOR_ADDRESS ((char*) TSRMG_FAST_BULK(executor_globals_offset, zend_executor_globals*))
@@ -112,43 +108,75 @@ static void zend_stat_sample(zend_stat_sampler_t *arg) {
         ZEND_HEAP_REAL_STAT_ADDRESS(arg->heap),
         &sample.memory.rsize, ZEND_HEAP_REAL_STAT_LENGTH);
 
-    if ((zend_stat_sampler_read(arg->pid, arg->fp, &frame, sizeof(zend_execute_data*)) != SUCCESS) ||
-        (zend_stat_sampler_read(arg->pid, (((char*) frame) + XtOffsetOf(zend_execute_data, func)), &function, sizeof(zend_function*)) != SUCCESS) ||
-        (zend_stat_sampler_read(arg->pid, ((char*) function) + XtOffsetOf(zend_function, type), &sample.type, sizeof(zend_uchar)) != SUCCESS)) {
-        return;
+    if (UNEXPECTED((zend_stat_sampler_read(arg->pid,
+            arg->fp, &frame, sizeof(zend_execute_data*)) != SUCCESS) || (NULL == frame))) {
+        goto _zend_stat_sample_insert;
+    }
+
+    if (UNEXPECTED((zend_stat_sampler_read(arg->pid,
+            (((char*) frame) + XtOffsetOf(zend_execute_data, func)),
+            &function, sizeof(zend_function*)) != SUCCESS) || (NULL == function))) {
+        goto _zend_stat_sample_insert;
+    }
+
+    if (UNEXPECTED(zend_stat_sampler_read(arg->pid,
+            ((char*) function) + XtOffsetOf(zend_function, type),
+            &sample.type, sizeof(zend_uchar)) != SUCCESS)) {
+        goto _zend_stat_sample_insert;
     }
 
     if (sample.type == ZEND_USER_FUNCTION) {
-        if ((zend_stat_sampler_read(arg->pid, (((char*) frame) + XtOffsetOf(zend_execute_data, opline)), &opline, sizeof(zend_op*)) != SUCCESS) ||
-            (zend_stat_sampler_read(arg->pid, (((char*) opline) + XtOffsetOf(zend_op, lineno)), &sample.location.line, sizeof(uint32_t)) != SUCCESS)) {
-            return;
+        if (UNEXPECTED(zend_stat_sampler_read(arg->pid,
+                (((char*) frame) + XtOffsetOf(zend_execute_data, opline)),
+                &opline, sizeof(zend_op*)) != SUCCESS)) {
+            sample.type = 0;
+
+            goto _zend_stat_sample_insert;
         }
 
-        sample.location.file = zend_stat_sampler_read_string(arg->pid, function, XtOffsetOf(zend_op_array, filename));
+        if (opline) {
+            if (UNEXPECTED(zend_stat_sampler_read(arg->pid,
+                    (((char*) opline) + XtOffsetOf(zend_op, lineno)),
+                    &sample.location.line, sizeof(uint32_t)) != SUCCESS)) {
+                sample.type = 0;
 
-        if (!sample.location.file) {
-            return;
+                goto _zend_stat_sample_insert;
+            }
+
+            if (sample.location.line) {
+                sample.location.file =
+                    zend_stat_sampler_read_string(
+                        arg->pid, function, XtOffsetOf(zend_op_array, filename));
+
+                if (!sample.location.file) {
+                    sample.location.line = 0;
+                    sample.type = 0;
+                }
+            }
         }
     }
 
-    if (zend_stat_sampler_read(arg->pid, ((char*) function) + XtOffsetOf(zend_function, common.scope), &scope, sizeof(zend_class_entry*)) != SUCCESS) {
-        return;
+    if (UNEXPECTED(zend_stat_sampler_read(arg->pid, ((char*) function) + XtOffsetOf(zend_function, common.scope), &scope, sizeof(zend_class_entry*)) != SUCCESS)) {
+        sample.type = 0;
+
+        goto _zend_stat_sample_insert;
     }
 
     if (scope) {
-        sample.scope = zend_stat_sampler_read_string(arg->pid, scope, XtOffsetOf(zend_class_entry, name));
+        sample.symbol.scope = zend_stat_sampler_read_string(arg->pid, scope, XtOffsetOf(zend_class_entry, name));
 
-        if (!sample.scope) {
-            return;
+        if (UNEXPECTED(NULL == sample.symbol.scope)) {
+            goto _zend_stat_sample_insert;
         }
     }
 
-    sample.function = zend_stat_sampler_read_string(arg->pid, function, XtOffsetOf(zend_function, common.function_name));
+    sample.symbol.function = zend_stat_sampler_read_string(arg->pid, function, XtOffsetOf(zend_function, common.function_name));
 
-    if (!sample.function) {
-        return;
+    if (UNEXPECTED(NULL == sample.symbol.function)) {
+        sample.symbol.scope = NULL;
     }
 
+_zend_stat_sample_insert:
     zend_stat_buffer_insert(arg->buffer, &sample);
 } /* }}} */
 
