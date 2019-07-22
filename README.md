@@ -83,10 +83,10 @@ All memory is shared among forks and threads, and stat uses atomics, for maximum
 
 Should mapping fail, because there isn't enough memory for example, Stat will not stop the process from starting up but will only output a warning. Should mapping succeed, the configured socket will be opened. Should opening the socket fail, Stat will be shutdown immediately but allow the process to continue.
 
-On request (RINIT) stat creates a timer that executes Stat's sampler for the current process at the configured interval.
+On request (RINIT) stat creates a timer that executes Stat's sampler for the current request at the configured interval.
 
 ### Sampler
 
 The sampler is always executed in a thread separate to the thread meant to be executing PHP code.
 
-Rather than using Zend hooks and overloads to extract information from the process, it reads directly from the process memory using uio.
+Rather than using Zend hooks and overloads to extract information from the request, it reads directly from the process memory using uio.
