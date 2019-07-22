@@ -128,12 +128,12 @@ static void zend_stat_sample(zend_stat_sample_arg_t *arg) {
 
 #if defined(ZTS)
 # if defined(TSRMG_FAST_BULK)
-#   define ZEND_EXECUTOR_ADDRRESS ((char*) TSRMG_FAST_BULK(executor_globals_offset, zend_executor_globals*))
+#   define ZEND_EXECUTOR_ADDRESS ((char*) TSRMG_FAST_BULK(executor_globals_offset, zend_executor_globals*))
 # else
 #   define ZEND_EXECUTOR_ADDRESS ((char*) TSRMG_BULK(executor_globals_id, zend_executor_globals*))
 # endif
 #else
-#   define ZEND_EXECUTOR_ADDRRESS ((char*) &executor_globals)
+#   define ZEND_EXECUTOR_ADDRESS ((char*) &executor_globals)
 #endif
 
 #define ZEND_EXECUTOR_FRAME_OFFSET XtOffsetOf(zend_executor_globals, current_execute_data)
@@ -146,7 +146,7 @@ void zend_stat_sampler_activate(zend_stat_buffer_t *buffer, pid_t pid) { /* {{{ 
     zend_stat_sample_arg.pid = pid;
     zend_stat_sample_arg.buffer = buffer;
     zend_stat_sample_arg.fp = (zend_execute_data*)
-        (ZEND_EXECUTOR_ADDRRESS + ZEND_EXECUTOR_FRAME_OFFSET);
+        (ZEND_EXECUTOR_ADDRESS + ZEND_EXECUTOR_FRAME_OFFSET);
 
     memset(&ev, 0, sizeof(ev));
 
