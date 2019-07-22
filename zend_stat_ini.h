@@ -22,7 +22,7 @@
 #include "zend_ini.h"
 
 extern zend_long    zend_stat_ini_slots;
-extern zend_long    zend_stat_ini_frequency;
+extern zend_long    zend_stat_ini_interval;
 extern zend_long    zend_stat_ini_strings;
 extern char*        zend_stat_ini_socket;
 extern int          zend_stat_ini_dump;

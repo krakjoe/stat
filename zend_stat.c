@@ -39,7 +39,6 @@
 #include "zend_stat_strings.h"
 
 static zend_stat_buffer_t*     zend_stat_buffer = NULL;
-static int                     zend_stat_resource = -1;
 static zend_bool               zend_stat_started = 0;
 
 static int  zend_stat_startup(zend_extension*);
@@ -90,7 +89,7 @@ static int zend_stat_startup(zend_extension *ze) {
         return SUCCESS;
     }
 
-    if (!(zend_stat_buffer = zend_stat_buffer_startup(zend_stat_ini_slots, zend_stat_ini_frequency))) {
+    if (!(zend_stat_buffer = zend_stat_buffer_startup(zend_stat_ini_slots, zend_stat_ini_interval))) {
         zend_stat_strings_shutdown();
         zend_stat_ini_shutdown();
 
@@ -106,7 +105,6 @@ static int zend_stat_startup(zend_extension *ze) {
     }
 
     zend_stat_started  = 1;
-    zend_stat_resource = zend_get_resource_handle(ze);
 
     ze->handle = 0;
 

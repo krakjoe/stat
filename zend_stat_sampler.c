@@ -159,7 +159,7 @@ void zend_stat_sampler_activate(zend_stat_buffer_t *buffer, pid_t pid) { /* {{{ 
 
     ts.tv_sec = 0;
     ts.tv_nsec = 
-        zend_stat_buffer_frequency(buffer) * 1000;
+        zend_stat_buffer_interval(buffer) * 1000;
 
     its.it_interval = ts;
     its.it_value = ts;
