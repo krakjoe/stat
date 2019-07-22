@@ -74,7 +74,7 @@ Notes:
 
   - the absense`location` and `symbol` signifies that the executor is not currently executing
   - the presence of `location` and absense of `symbol` signifies that the executor is currently executing in a file
-  - the absense of `location` and presence of `symbol` sifnifies that the executor is currently internal code
+  - the absense of `location` and presence of `symbol` sifnifies that the executor is currently executing internal code
 
 ### Internals
 
