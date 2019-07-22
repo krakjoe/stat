@@ -32,10 +32,10 @@ typedef struct _zend_stat_sample_t {
     pid_t                    pid;
     double                   elapsed;
     struct {
-        zend_ulong           size;
-        zend_ulong           peak;
-        zend_ulong           rsize;
-        zend_ulong           rpeak;
+        size_t               size;
+        size_t               peak;
+        size_t               rsize;
+        size_t               rpeak;
     } memory;
     struct {
         zend_stat_string_t  *file;
