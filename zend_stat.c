@@ -40,6 +40,7 @@
 
 static zend_stat_buffer_t*     zend_stat_buffer = NULL;
 static zend_bool               zend_stat_started = 0;
+ZEND_TLS zend_stat_sampler_t   zend_stat_sampler;
 
 static int  zend_stat_startup(zend_extension*);
 static void zend_stat_shutdown(zend_extension *);
@@ -89,7 +90,7 @@ static int zend_stat_startup(zend_extension *ze) {
         return SUCCESS;
     }
 
-    if (!(zend_stat_buffer = zend_stat_buffer_startup(zend_stat_ini_slots, zend_stat_ini_interval))) {
+    if (!(zend_stat_buffer = zend_stat_buffer_startup(zend_stat_ini_slots))) {
         zend_stat_strings_shutdown();
         zend_stat_ini_shutdown();
 
@@ -137,18 +138,14 @@ static void zend_stat_activate(void) {
     }
 
 #if defined(ZTS)
-    zend_stat_sampler_activate(zend_stat_buffer, syscall(SYS_gettid));
+    zend_stat_sampler_activate(&zend_stat_sampler, zend_stat_buffer, syscall(SYS_gettid), zend_stat_ini_interval);
 #else
-    zend_stat_sampler_activate(zend_stat_buffer, getpid());
+    zend_stat_sampler_activate(&zend_stat_sampler, zend_stat_buffer, getpid(), zend_stat_ini_interval);
 #endif
 }
 
 static void zend_stat_deactivate(void) {
-#if defined(ZTS)
-    zend_stat_sampler_deactivate(zend_stat_buffer, syscall(SYS_gettid));
-#else
-    zend_stat_sampler_deactivate(zend_stat_buffer, getpid());
-#endif
+    zend_stat_sampler_deactivate(&zend_stat_sampler);
 }
 
 #if defined(ZTS) && defined(COMPILE_DL_STAT)

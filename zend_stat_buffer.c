@@ -30,11 +30,10 @@ struct _zend_stat_buffer_t {
     zend_stat_sample_t *end;
     zend_ulong slots;
     zend_ulong size;
-    zend_ulong interval;
     double started;
 };
 
-zend_stat_buffer_t* zend_stat_buffer_startup(zend_long slots, zend_long interval) {
+zend_stat_buffer_t* zend_stat_buffer_startup(zend_long slots) {
     size_t size = sizeof(zend_stat_buffer_t) +
                   (slots * sizeof(zend_stat_sample_t));
     zend_stat_buffer_t *buffer = zend_stat_map(size);
@@ -53,7 +52,6 @@ zend_stat_buffer_t* zend_stat_buffer_startup(zend_long slots, zend_long interval
     buffer->slots     = slots;
     buffer->end       = buffer->position + buffer->slots;
     buffer->size      = size;
-    buffer->interval  = interval;
     buffer->started  = zend_stat_time();
 
     memset(buffer->samples, 0, sizeof(zend_stat_sample_t) * buffer->slots);
@@ -182,10 +180,6 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
 
         zend_stat_io_write_literal_ex(fd, "}\n", return);
     }
-}
-
-zend_ulong zend_stat_buffer_interval(zend_stat_buffer_t *buffer) {
-    return buffer->interval;
 }
 
 double zend_stat_buffer_started(zend_stat_buffer_t *buffer) {

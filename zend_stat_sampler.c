@@ -23,11 +23,7 @@
 #include "zend_stat_buffer.h"
 #include "zend_stat_sampler.h"
 
-ZEND_TLS timer_t zend_stat_sampler_timer;
-
-ZEND_TLS zend_bool zend_stat_sampler_active;
-
-typedef struct _zend_heap_header_t {
+struct _zend_heap_header_t {
     int custom;
     void *storage;
     size_t size;
@@ -35,16 +31,7 @@ typedef struct _zend_heap_header_t {
     void *free_slots[30];
     size_t rsize;
     size_t rpeak;
-} zend_heap_header_t;
-
-typedef struct _zend_stat_sample_arg_t {
-    pid_t               pid;
-    zend_stat_buffer_t *buffer;
-    zend_heap_header_t *heap;
-    zend_execute_data  *fp;
-} zend_stat_sample_arg_t;
-
-ZEND_TLS zend_stat_sample_arg_t zend_stat_sample_arg = {0, NULL, NULL, NULL};
+};
 
 static zend_stat_sample_t zend_stat_sample_empty = {
     {0, 0}, ZEND_STAT_SAMPLE_UNUSED, 0, 0, {0, 0, 0, 0}, {NULL, 0}, NULL, NULL
@@ -108,7 +95,7 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(pid_
 } /* }}} */
 
 /* {{{ */
-static void zend_stat_sample(zend_stat_sample_arg_t *arg) {
+static void zend_stat_sample(zend_stat_sampler_t *arg) {
     zend_execute_data *frame;
     zend_class_entry *scope = NULL;
     zend_function *function = NULL;
@@ -167,16 +154,18 @@ static void zend_stat_sample(zend_stat_sample_arg_t *arg) {
     zend_stat_buffer_insert(arg->buffer, &sample);
 } /* }}} */
 
-void zend_stat_sampler_activate(zend_stat_buffer_t *buffer, pid_t pid) { /* {{{ */
+void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, zend_stat_buffer_t *buffer, pid_t pid, zend_long interval) { /* {{{ */
     struct sigevent ev;
     struct itimerspec its;
     struct timespec ts;
 
-    zend_stat_sample_arg.pid = pid;
-    zend_stat_sample_arg.buffer = buffer;
-    zend_stat_sample_arg.heap =
+    memset(sampler, 0, sizeof(zend_stat_sampler_t));
+
+    sampler->pid = pid;
+    sampler->buffer = buffer;
+    sampler->heap =
         (zend_heap_header_t*) zend_mm_get_heap();
-    zend_stat_sample_arg.fp = (zend_execute_data*)
+    sampler->fp = (zend_execute_data*)
         (ZEND_EXECUTOR_ADDRESS + ZEND_EXECUTOR_FRAME_OFFSET);
 
     memset(&ev, 0, sizeof(ev));
@@ -184,30 +173,29 @@ void zend_stat_sampler_activate(zend_stat_buffer_t *buffer, pid_t pid) { /* {{{ 
     ev.sigev_notify = SIGEV_THREAD;
     ev.sigev_notify_function =
         (void (*)(union sigval)) zend_stat_sample;
-    ev.sigev_value.sival_ptr = &zend_stat_sample_arg;
+    ev.sigev_value.sival_ptr = sampler;
 
-    if (timer_create(CLOCK_MONOTONIC, &ev, &zend_stat_sampler_timer) != SUCCESS) {
+    if (timer_create(CLOCK_MONOTONIC, &ev, &sampler->timer) != SUCCESS) {
         return;
     }
 
     ts.tv_sec = 0;
-    ts.tv_nsec =
-        zend_stat_buffer_interval(buffer) * 1000;
+    ts.tv_nsec = interval * 1000;
 
     its.it_interval = ts;
     its.it_value = ts;
 
-    if (timer_settime(zend_stat_sampler_timer, 0, &its, NULL) != SUCCESS) {
-        timer_delete(zend_stat_sampler_timer);
+    if (timer_settime(sampler->timer, 0, &its, NULL) != SUCCESS) {
+        timer_delete(sampler->timer);
         return;
     }
 
-    zend_stat_sampler_active = 1;
+    sampler->active = 1;
 } /* }}} */
 
-void zend_stat_sampler_deactivate(zend_stat_buffer_t *buffer, pid_t pid) { /* {{{ */
-    if (zend_stat_sampler_active) {
-        timer_delete(zend_stat_sampler_timer);
+void zend_stat_sampler_deactivate(zend_stat_sampler_t *sampler) { /* {{{ */
+    if (sampler->active) {
+        timer_delete(sampler->timer);
     }
 } /* }}} */
 

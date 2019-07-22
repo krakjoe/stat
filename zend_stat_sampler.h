@@ -52,6 +52,17 @@ typedef struct _zend_stat_sample_t {
 #define ZEND_STAT_SAMPLE_DATA_SIZE \
     (sizeof(zend_stat_sample_t) - XtOffsetOf(zend_stat_sample_t, type))
 
-void zend_stat_sampler_activate(zend_stat_buffer_t *buffer, pid_t pid);
-void zend_stat_sampler_deactivate(zend_stat_buffer_t *buffer, pid_t pid);
+typedef struct _zend_heap_header_t zend_heap_header_t;
+
+typedef struct _zend_stat_sampler_t {
+    pid_t               pid;
+    timer_t             timer;
+    zend_bool           active;
+    zend_stat_buffer_t *buffer;
+    zend_heap_header_t *heap;
+    zend_execute_data  *fp;
+} zend_stat_sampler_t;
+
+void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, zend_stat_buffer_t *buffer, pid_t pid, zend_long interval);
+void zend_stat_sampler_deactivate(zend_stat_sampler_t *sampler);
 #endif	/* ZEND_STAT_SAMPLER_H */

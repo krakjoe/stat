@@ -21,7 +21,7 @@
 
 typedef struct _zend_stat_buffer_t zend_stat_buffer_t;
 
-zend_stat_buffer_t* zend_stat_buffer_startup(zend_long slots, zend_long frequency);
+zend_stat_buffer_t* zend_stat_buffer_startup(zend_long slots);
 void zend_stat_buffer_shutdown(zend_stat_buffer_t *);
 
 void zend_stat_buffer_activate(zend_stat_buffer_t *buffer, pid_t pid);
@@ -29,7 +29,6 @@ void zend_stat_buffer_deactivate(zend_stat_buffer_t *buffer, pid_t pid);
 
 #include "zend_stat_sampler.h"
 
-zend_ulong zend_stat_buffer_interval(zend_stat_buffer_t *buffer);
 double     zend_stat_buffer_started(zend_stat_buffer_t *buffer);
 void zend_stat_buffer_insert(zend_stat_buffer_t *buffer, zend_stat_sample_t *sample);
 void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd);
