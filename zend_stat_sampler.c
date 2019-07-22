@@ -33,7 +33,7 @@ typedef struct _zend_stat_sample_arg_t {
 
 ZEND_TLS zend_stat_sample_arg_t zend_stat_sample_arg = {0, NULL, NULL};
 
-static zend_stat_sample_t zend_stat_sample_empty = {{0, 0}, 0, 0, 0, {NULL, 0}, NULL, NULL};
+static zend_stat_sample_t zend_stat_sample_empty = {{0, 0}, ZEND_STAT_SAMPLE_UNUSED, 0, 0, {NULL, 0}, NULL, NULL};
 
 static zend_always_inline int zend_stat_sampler_read(pid_t pid, const void *remote, void *symbol, size_t size) { /* {{{ */
     struct iovec local;
