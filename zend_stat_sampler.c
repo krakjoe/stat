@@ -27,10 +27,7 @@ struct _zend_heap_header_t {
     int custom;
     void *storage;
     size_t size;
-    size_t real;
-    void *free_slots[30];
-    size_t rsize;
-    size_t rpeak;
+    size_t peak;
 };
 
 #if defined(ZTS)
@@ -47,9 +44,6 @@ struct _zend_heap_header_t {
 
 #define ZEND_HEAP_STAT_ADDRESS(heap) (((char*) heap) + XtOffsetOf(zend_heap_header_t, size))
 #define ZEND_HEAP_STAT_LENGTH (sizeof(size_t) * 2)
-
-#define ZEND_HEAP_REAL_STAT_ADDRESS(heap) (((char*) heap) + XtOffsetOf(zend_heap_header_t, rsize))
-#define ZEND_HEAP_REAL_STAT_LENGTH (sizeof(size_t) * 2)
 
 static zend_always_inline int zend_stat_sampler_read(pid_t pid, const void *remote, void *symbol, size_t size) { /* {{{ */
     struct iovec local;
@@ -110,9 +104,6 @@ static void zend_stat_sample(zend_stat_sampler_t *arg) {
     zend_stat_sampler_read(arg->pid,
         ZEND_HEAP_STAT_ADDRESS(arg->heap),
         &sample.memory.size, ZEND_HEAP_STAT_LENGTH);
-    zend_stat_sampler_read(arg->pid,
-        ZEND_HEAP_REAL_STAT_ADDRESS(arg->heap),
-        &sample.memory.rsize, ZEND_HEAP_REAL_STAT_LENGTH);
 
     if (UNEXPECTED((zend_stat_sampler_read(arg->pid,
             arg->fp, &frame, sizeof(zend_execute_data*)) != SUCCESS) || (NULL == frame))) {
@@ -168,9 +159,7 @@ static void zend_stat_sample(zend_stat_sampler_t *arg) {
         sample.type = 0;
 
         goto _zend_stat_sample_insert;
-    }
-
-    if (scope) {
+    } else if (scope) {
         sample.symbol.scope =
             zend_stat_sampler_read_string(
                 arg->pid, scope, XtOffsetOf(zend_class_entry, name));

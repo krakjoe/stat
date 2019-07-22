@@ -58,9 +58,7 @@ Stat will send each sample as a json encoded packet, one sample per line with th
         "elapsed": double,
         "memory": {
             "size": int,
-            "peak": int,
-            "rsize": int,
-            "rpeak": int
+            "peak": int
         },
         "location": {
             "file":  "string",

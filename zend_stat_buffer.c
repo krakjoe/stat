@@ -149,10 +149,6 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
         zend_stat_io_write_int_ex(fd, sampled.memory.size, return);
         zend_stat_io_write_literal_ex(fd, ", \"peak\": ", return);
         zend_stat_io_write_int_ex(fd, sampled.memory.peak, return);
-        zend_stat_io_write_literal_ex(fd, ", \"rsize\": ", return);
-        zend_stat_io_write_int_ex(fd, sampled.memory.rsize, return);
-        zend_stat_io_write_literal_ex(fd, ", \"rpeak\": ", return);
-        zend_stat_io_write_int_ex(fd, sampled.memory.rpeak, return);
         zend_stat_io_write_literal_ex(fd, "}, ", return);
 
         if (sampled.location.file) {

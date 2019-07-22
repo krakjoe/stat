@@ -34,8 +34,6 @@ typedef struct _zend_stat_sample_t {
     struct {
         size_t               size;
         size_t               peak;
-        size_t               rsize;
-        size_t               rpeak;
     } memory;
     struct {
         zend_stat_string_t  *file;
@@ -55,7 +53,7 @@ typedef struct _zend_stat_sample_t {
     (sizeof(zend_stat_sample_t) - XtOffsetOf(zend_stat_sample_t, type))
 
 const static zend_stat_sample_t zend_stat_sample_empty = {
-    {0, 0}, ZEND_STAT_SAMPLE_UNUSED, 0, 0, {0, 0, 0, 0}, {NULL, 0}, {NULL, NULL}
+    {0, 0}, ZEND_STAT_SAMPLE_UNUSED, 0, 0, {0, 0}, {NULL, 0}, {NULL, NULL}
 };
 
 typedef struct _zend_heap_header_t zend_heap_header_t;
