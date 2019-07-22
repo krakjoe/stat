@@ -63,6 +63,6 @@ typedef struct _zend_stat_sampler_t {
     zend_execute_data  *fp;
 } zend_stat_sampler_t;
 
-void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, zend_stat_buffer_t *buffer, pid_t pid, zend_long interval);
+void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_long interval, zend_stat_buffer_t *buffer);
 void zend_stat_sampler_deactivate(zend_stat_sampler_t *sampler);
 #endif	/* ZEND_STAT_SAMPLER_H */

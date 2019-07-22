@@ -52,7 +52,7 @@ zend_stat_buffer_t* zend_stat_buffer_startup(zend_long slots) {
     buffer->slots     = slots;
     buffer->end       = buffer->position + buffer->slots;
     buffer->size      = size;
-    buffer->started  = zend_stat_time();
+    buffer->started   = zend_stat_time();
 
     memset(buffer->samples, 0, sizeof(zend_stat_sample_t) * buffer->slots);
 

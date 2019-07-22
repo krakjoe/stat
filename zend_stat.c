@@ -40,6 +40,7 @@
 
 static zend_stat_buffer_t*     zend_stat_buffer = NULL;
 static zend_bool               zend_stat_started = 0;
+static double                  zend_stat_started_time = 0.0;
 ZEND_TLS zend_stat_sampler_t   zend_stat_sampler;
 
 static int  zend_stat_startup(zend_extension*);
@@ -105,7 +106,8 @@ static int zend_stat_startup(zend_extension *ze) {
         return SUCCESS;
     }
 
-    zend_stat_started  = 1;
+    zend_stat_started = 1;
+    zend_stat_started_time = zend_stat_time();
 
     ze->handle = 0;
 
@@ -138,14 +140,18 @@ static void zend_stat_activate(void) {
     }
 
 #if defined(ZTS)
-    zend_stat_sampler_activate(&zend_stat_sampler, zend_stat_buffer, syscall(SYS_gettid), zend_stat_ini_interval);
+    zend_stat_sampler_activate(&zend_stat_sampler, syscall(SYS_gettid), zend_stat_ini_interval, zend_stat_buffer);
 #else
-    zend_stat_sampler_activate(&zend_stat_sampler, zend_stat_buffer, getpid(), zend_stat_ini_interval);
+    zend_stat_sampler_activate(&zend_stat_sampler, getpid(), zend_stat_ini_interval, zend_stat_buffer);
 #endif
 }
 
 static void zend_stat_deactivate(void) {
     zend_stat_sampler_deactivate(&zend_stat_sampler);
+}
+
+double zend_stat_started_at(void) {
+    return zend_stat_started_time;
 }
 
 #if defined(ZTS) && defined(COMPILE_DL_STAT)

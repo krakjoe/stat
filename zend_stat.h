@@ -35,6 +35,8 @@
 
 #include <unistd.h>
 
+double zend_stat_started_at(void);
+
 static zend_always_inline double zend_stat_time(void) {
     struct timespec ts;
 

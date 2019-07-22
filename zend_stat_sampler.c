@@ -105,7 +105,7 @@ static void zend_stat_sample(zend_stat_sampler_t *arg) {
     sample.pid = arg->pid;
     sample.elapsed =
         zend_stat_time() -
-        zend_stat_buffer_started(arg->buffer);
+        zend_stat_started_at();
 
     zend_stat_sampler_read(arg->pid,
         ZEND_HEAP_STAT_ADDRESS(arg->heap),
@@ -154,7 +154,7 @@ static void zend_stat_sample(zend_stat_sampler_t *arg) {
     zend_stat_buffer_insert(arg->buffer, &sample);
 } /* }}} */
 
-void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, zend_stat_buffer_t *buffer, pid_t pid, zend_long interval) { /* {{{ */
+void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_long interval, zend_stat_buffer_t *buffer) { /* {{{ */
     struct sigevent ev;
     struct itimerspec its;
     struct timespec ts;
