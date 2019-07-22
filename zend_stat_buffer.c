@@ -148,6 +148,17 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
         zend_stat_io_write_double_ex(fd, sampled.elapsed, return);
         zend_stat_io_write_literal_ex(fd, ", ", return);
 
+        zend_stat_io_write_literal_ex(fd, "\"memory\": {", return);
+        zend_stat_io_write_literal_ex(fd, "\"size\": ", return);
+        zend_stat_io_write_int_ex(fd, sampled.memory.size, return);
+        zend_stat_io_write_literal_ex(fd, ", \"peak\": ", return);
+        zend_stat_io_write_int_ex(fd, sampled.memory.peak, return);
+        zend_stat_io_write_literal_ex(fd, ", \"rsize\": ", return);
+        zend_stat_io_write_int_ex(fd, sampled.memory.rsize, return);
+        zend_stat_io_write_literal_ex(fd, ", \"rpeak\": ", return);
+        zend_stat_io_write_int_ex(fd, sampled.memory.rpeak, return);
+        zend_stat_io_write_literal_ex(fd, "}, ", return);
+
         if (sample->type == ZEND_USER_FUNCTION) {
             zend_stat_io_write_literal_ex(fd, "\"location\": {", return);
             zend_stat_io_write_literal_ex(fd, "\"file\": \"", return);

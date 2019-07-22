@@ -25,15 +25,48 @@
 
 ZEND_TLS timer_t zend_stat_sampler_timer;
 
+ZEND_TLS zend_bool zend_stat_sampler_active;
+
+typedef struct _zend_heap_header_t {
+    int custom;
+    void *storage;
+    size_t size;
+    size_t real;
+    void *free_slots[30];
+    size_t rsize;
+    size_t rpeak;
+} zend_heap_header_t;
+
 typedef struct _zend_stat_sample_arg_t {
     pid_t               pid;
     zend_stat_buffer_t *buffer;
+    zend_heap_header_t *heap;
     zend_execute_data  *fp;
 } zend_stat_sample_arg_t;
 
-ZEND_TLS zend_stat_sample_arg_t zend_stat_sample_arg = {0, NULL, NULL};
+ZEND_TLS zend_stat_sample_arg_t zend_stat_sample_arg = {0, NULL, NULL, NULL};
 
-static zend_stat_sample_t zend_stat_sample_empty = {{0, 0}, ZEND_STAT_SAMPLE_UNUSED, 0, 0, {NULL, 0}, NULL, NULL};
+static zend_stat_sample_t zend_stat_sample_empty = {
+    {0, 0}, ZEND_STAT_SAMPLE_UNUSED, 0, 0, {0, 0, 0, 0}, {NULL, 0}, NULL, NULL
+};
+
+#if defined(ZTS)
+# if defined(TSRMG_FAST_BULK)
+#   define ZEND_EXECUTOR_ADDRESS ((char*) TSRMG_FAST_BULK(executor_globals_offset, zend_executor_globals*))
+# else
+#   define ZEND_EXECUTOR_ADDRESS ((char*) TSRMG_BULK(executor_globals_id, zend_executor_globals*))
+# endif
+#else
+#   define ZEND_EXECUTOR_ADDRESS ((char*) &executor_globals)
+#endif
+
+#define ZEND_EXECUTOR_FRAME_OFFSET XtOffsetOf(zend_executor_globals, current_execute_data)
+
+#define ZEND_HEAP_STAT_ADDRESS(heap) (((char*) heap) + XtOffsetOf(zend_heap_header_t, size))
+#define ZEND_HEAP_STAT_LENGTH (sizeof(size_t) * 2)
+
+#define ZEND_HEAP_REAL_STAT_ADDRESS(heap) (((char*) heap) + XtOffsetOf(zend_heap_header_t, rsize))
+#define ZEND_HEAP_REAL_STAT_LENGTH (sizeof(size_t) * 2)
 
 static zend_always_inline int zend_stat_sampler_read(pid_t pid, const void *remote, void *symbol, size_t size) { /* {{{ */
     struct iovec local;
@@ -71,6 +104,7 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(pid_
     }
 
     return zend_stat_string(result);
+
 } /* }}} */
 
 /* {{{ */
@@ -82,9 +116,16 @@ static void zend_stat_sample(zend_stat_sample_arg_t *arg) {
     zend_stat_sample_t sample = zend_stat_sample_empty;
 
     sample.pid = arg->pid;
-    sample.elapsed = 
-        zend_stat_time() - 
+    sample.elapsed =
+        zend_stat_time() -
         zend_stat_buffer_started(arg->buffer);
+
+    zend_stat_sampler_read(arg->pid,
+        ZEND_HEAP_STAT_ADDRESS(arg->heap),
+        &sample.memory.size, ZEND_HEAP_STAT_LENGTH);
+    zend_stat_sampler_read(arg->pid,
+        ZEND_HEAP_REAL_STAT_ADDRESS(arg->heap),
+        &sample.memory.rsize, ZEND_HEAP_REAL_STAT_LENGTH);
 
     if ((zend_stat_sampler_read(arg->pid, arg->fp, &frame, sizeof(zend_execute_data*)) != SUCCESS) ||
         (zend_stat_sampler_read(arg->pid, (((char*) frame) + XtOffsetOf(zend_execute_data, func)), &function, sizeof(zend_function*)) != SUCCESS) ||
@@ -126,18 +167,6 @@ static void zend_stat_sample(zend_stat_sample_arg_t *arg) {
     zend_stat_buffer_insert(arg->buffer, &sample);
 } /* }}} */
 
-#if defined(ZTS)
-# if defined(TSRMG_FAST_BULK)
-#   define ZEND_EXECUTOR_ADDRESS ((char*) TSRMG_FAST_BULK(executor_globals_offset, zend_executor_globals*))
-# else
-#   define ZEND_EXECUTOR_ADDRESS ((char*) TSRMG_BULK(executor_globals_id, zend_executor_globals*))
-# endif
-#else
-#   define ZEND_EXECUTOR_ADDRESS ((char*) &executor_globals)
-#endif
-
-#define ZEND_EXECUTOR_FRAME_OFFSET XtOffsetOf(zend_executor_globals, current_execute_data)
-
 void zend_stat_sampler_activate(zend_stat_buffer_t *buffer, pid_t pid) { /* {{{ */
     struct sigevent ev;
     struct itimerspec its;
@@ -145,6 +174,8 @@ void zend_stat_sampler_activate(zend_stat_buffer_t *buffer, pid_t pid) { /* {{{ 
 
     zend_stat_sample_arg.pid = pid;
     zend_stat_sample_arg.buffer = buffer;
+    zend_stat_sample_arg.heap =
+        (zend_heap_header_t*) zend_mm_get_heap();
     zend_stat_sample_arg.fp = (zend_execute_data*)
         (ZEND_EXECUTOR_ADDRESS + ZEND_EXECUTOR_FRAME_OFFSET);
 
@@ -155,20 +186,29 @@ void zend_stat_sampler_activate(zend_stat_buffer_t *buffer, pid_t pid) { /* {{{ 
         (void (*)(union sigval)) zend_stat_sample;
     ev.sigev_value.sival_ptr = &zend_stat_sample_arg;
 
-    timer_create(CLOCK_MONOTONIC, &ev, &zend_stat_sampler_timer);
+    if (timer_create(CLOCK_MONOTONIC, &ev, &zend_stat_sampler_timer) != SUCCESS) {
+        return;
+    }
 
     ts.tv_sec = 0;
-    ts.tv_nsec = 
+    ts.tv_nsec =
         zend_stat_buffer_interval(buffer) * 1000;
 
     its.it_interval = ts;
     its.it_value = ts;
 
-    timer_settime(zend_stat_sampler_timer, 0, &its, NULL);
+    if (timer_settime(zend_stat_sampler_timer, 0, &its, NULL) != SUCCESS) {
+        timer_delete(zend_stat_sampler_timer);
+        return;
+    }
+
+    zend_stat_sampler_active = 1;
 } /* }}} */
 
 void zend_stat_sampler_deactivate(zend_stat_buffer_t *buffer, pid_t pid) { /* {{{ */
-    timer_delete(zend_stat_sampler_timer);
+    if (zend_stat_sampler_active) {
+        timer_delete(zend_stat_sampler_timer);
+    }
 } /* }}} */
 
 #endif	/* ZEND_STAT_SAMPLER */
