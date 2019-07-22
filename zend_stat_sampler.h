@@ -32,7 +32,7 @@ typedef struct _zend_stat_sample_t {
     pid_t                    pid;
     double                   elapsed;
     struct {
-        size_t               size;
+        size_t               used;
         size_t               peak;
     } memory;
     struct {

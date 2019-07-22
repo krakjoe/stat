@@ -147,8 +147,8 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
 
         zend_stat_io_write_literal_ex(fd, "\"memory\": {", return);
 
-        zend_stat_io_write_literal_ex(fd, "\"size\": ", return);
-        zend_stat_io_write_int_ex(fd, sampled.memory.size, return);
+        zend_stat_io_write_literal_ex(fd, "\"used\": ", return);
+        zend_stat_io_write_int_ex(fd, sampled.memory.used, return);
         zend_stat_io_write_literal_ex(fd, ", \"peak\": ", return);
         zend_stat_io_write_int_ex(fd, sampled.memory.peak, return);
 

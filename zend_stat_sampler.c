@@ -103,7 +103,7 @@ static void zend_stat_sample(zend_stat_sampler_t *arg) {
 
     zend_stat_sampler_read(arg->pid,
         ZEND_HEAP_STAT_ADDRESS(arg->heap),
-        &sample.memory.size, ZEND_HEAP_STAT_LENGTH);
+        &sample.memory.used, ZEND_HEAP_STAT_LENGTH);
 
     if (UNEXPECTED((zend_stat_sampler_read(arg->pid,
             arg->fp, &frame, sizeof(zend_execute_data*)) != SUCCESS) || (NULL == frame))) {
