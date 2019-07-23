@@ -62,8 +62,14 @@ typedef struct _zend_heap_header_t zend_heap_header_t;
 
 typedef struct _zend_stat_sampler_t {
     pid_t               pid;
-    timer_t             timer;
-    zend_bool           active;
+    struct {
+        pthread_mutex_t mutex;
+        pthread_cond_t  cond;
+        zend_long       interval;
+        zend_bool       closed;
+        zend_bool       active;
+        pthread_t       thread;
+    } timer;
     zend_stat_buffer_t *buffer;
     zend_heap_header_t *heap;
     zend_execute_data  *fp;

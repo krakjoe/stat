@@ -91,7 +91,7 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(pid_
 } /* }}} */
 
 /* {{{ */
-static void zend_stat_sample(zend_stat_sampler_t *arg) {
+static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *arg) {
     zend_execute_data *frame;
     zend_class_entry *scope = NULL;
     zend_function *function = NULL;
@@ -190,11 +190,41 @@ _zend_stat_sample_insert:
     zend_stat_buffer_insert(arg->buffer, &sample);
 } /* }}} */
 
-void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_long interval, zend_stat_buffer_t *buffer) { /* {{{ */
-    struct sigevent ev;
-    struct itimerspec its;
+static void* zend_stat_sampler(zend_stat_sampler_t *sampler) { /* {{{ */
     struct timespec ts;
 
+    pthread_mutex_lock(&sampler->timer.mutex);
+
+    while (!__atomic_load_n(&sampler->timer.closed, __ATOMIC_SEQ_CST)) {
+        if (clock_gettime(CLOCK_REALTIME, &ts) != SUCCESS) {
+            break;
+        }
+
+        ts.tv_nsec +=
+            sampler->timer.interval;
+
+        switch (pthread_cond_timedwait(&sampler->timer.cond, &sampler->timer.mutex, &ts)) {
+            case ETIMEDOUT:
+            case EINVAL:
+                zend_stat_sample(sampler);
+            break;
+
+            case SUCCESS:
+                /* do nothing */
+                break;
+
+            default:
+                goto _zend_stat_sampler_routine_leave;
+        }
+    }
+
+_zend_stat_sampler_routine_leave:
+    pthread_mutex_unlock(&sampler->timer.mutex);
+
+    pthread_exit(NULL);
+} /* }}} */
+
+void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_long interval, zend_stat_buffer_t *buffer) { /* {{{ */
     memset(sampler, 0, sizeof(zend_stat_sampler_t));
 
     sampler->pid = pid;
@@ -204,35 +234,39 @@ void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_lo
     sampler->fp = (zend_execute_data*)
         (ZEND_EXECUTOR_ADDRESS + ZEND_EXECUTOR_FRAME_OFFSET);
 
-    memset(&ev, 0, sizeof(ev));
+    sampler->timer.interval = interval * 1000;
 
-    ev.sigev_notify = SIGEV_THREAD;
-    ev.sigev_notify_function =
-        (void (*)(union sigval)) zend_stat_sample;
-    ev.sigev_value.sival_ptr = sampler;
+    pthread_mutex_init(&sampler->timer.mutex, NULL);
+    pthread_cond_init(&sampler->timer.cond, NULL);
 
-    if (timer_create(CLOCK_MONOTONIC, &ev, &sampler->timer) != SUCCESS) {
+    if (pthread_create(
+            &sampler->timer.thread, NULL,
+            (void*)(void*)
+                zend_stat_sampler,
+            (void*) sampler) != SUCCESS) {
         return;
     }
 
-    ts.tv_sec = 0;
-    ts.tv_nsec = interval * 1000;
-
-    its.it_interval = ts;
-    its.it_value = ts;
-
-    if (timer_settime(sampler->timer, 0, &its, NULL) != SUCCESS) {
-        timer_delete(sampler->timer);
-        return;
-    }
-
-    sampler->active = 1;
+    sampler->timer.active = 1;
 } /* }}} */
 
 void zend_stat_sampler_deactivate(zend_stat_sampler_t *sampler) { /* {{{ */
-    if (sampler->active) {
-        timer_delete(sampler->timer);
+    if (!sampler->timer.active) {
+        pthread_cond_destroy(&sampler->timer.cond);
+        pthread_mutex_destroy(&sampler->timer.mutex);
+        return;
     }
+
+    __atomic_store_n(&sampler->timer.closed, 1, __ATOMIC_SEQ_CST);
+
+    pthread_mutex_lock(&sampler->timer.mutex);
+    pthread_cond_signal(&sampler->timer.cond);
+    pthread_mutex_unlock(&sampler->timer.mutex);
+
+    pthread_join(sampler->timer.thread, NULL);
+
+    pthread_cond_destroy(&sampler->timer.cond);
+    pthread_mutex_destroy(&sampler->timer.mutex);
 } /* }}} */
 
 #endif	/* ZEND_STAT_SAMPLER */

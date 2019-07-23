@@ -34,6 +34,7 @@
 #include <sys/types.h>
 
 #include <unistd.h>
+#include <pthread.h>
 
 double zend_stat_time(void);
 
