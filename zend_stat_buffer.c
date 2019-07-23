@@ -166,7 +166,7 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
             zend_stat_io_write_string_ex(fd, sampled.location.file, return);
             zend_stat_io_write_literal_ex(fd, "\"", return);
 
-            zend_stat_io_write_literal_ex(fd, "\", line\": ", return);
+            zend_stat_io_write_literal_ex(fd, ", \"line\": ", return);
             zend_stat_io_write_int_ex(fd, sampled.location.line, return);
 
             zend_stat_io_write_literal_ex(fd, "}", return);
