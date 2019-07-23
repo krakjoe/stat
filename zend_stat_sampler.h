@@ -45,7 +45,9 @@ typedef struct _zend_stat_sample_t {
     } symbol;
 } zend_stat_sample_t;
 
-#define ZEND_STAT_SAMPLE_UNUSED 0
+#define ZEND_STAT_SAMPLE_UNUSED   0
+#define ZEND_STAT_SAMPLE_INTERNAL 8
+#define ZEND_STAT_SAMPLE_MEMORY   16
 
 #define ZEND_STAT_SAMPLE_DATA(s) \
     (((char*) s) + XtOffsetOf(zend_stat_sample_t, type))

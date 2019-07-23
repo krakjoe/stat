@@ -107,18 +107,24 @@ static void zend_stat_sample(zend_stat_sampler_t *arg) {
 
     if (UNEXPECTED((zend_stat_sampler_read(arg->pid,
             arg->fp, &frame, sizeof(zend_execute_data*)) != SUCCESS) || (NULL == frame))) {
+        sample.type = ZEND_STAT_SAMPLE_MEMORY;
+
         goto _zend_stat_sample_insert;
     }
 
     if (UNEXPECTED((zend_stat_sampler_read(arg->pid,
             (((char*) frame) + XtOffsetOf(zend_execute_data, func)),
             &function, sizeof(zend_function*)) != SUCCESS) || (NULL == function))) {
+        sample.type = ZEND_STAT_SAMPLE_MEMORY;
+
         goto _zend_stat_sample_insert;
     }
 
     if (UNEXPECTED(zend_stat_sampler_read(arg->pid,
             ((char*) function) + XtOffsetOf(zend_function, type),
             &sample.type, sizeof(zend_uchar)) != SUCCESS)) {
+        sample.type = ZEND_STAT_SAMPLE_MEMORY;
+
         goto _zend_stat_sample_insert;
     }
 
@@ -126,7 +132,7 @@ static void zend_stat_sample(zend_stat_sampler_t *arg) {
         if (UNEXPECTED(zend_stat_sampler_read(arg->pid,
                 (((char*) frame) + XtOffsetOf(zend_execute_data, opline)),
                 &opline, sizeof(zend_op*)) != SUCCESS)) {
-            sample.type = 0;
+            sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
             goto _zend_stat_sample_insert;
         }
@@ -135,7 +141,7 @@ static void zend_stat_sample(zend_stat_sampler_t *arg) {
             if (UNEXPECTED(zend_stat_sampler_read(arg->pid,
                     (((char*) opline) + XtOffsetOf(zend_op, lineno)),
                     &sample.location.line, sizeof(uint32_t)) != SUCCESS)) {
-                sample.type = 0;
+                sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
                 goto _zend_stat_sample_insert;
             }
@@ -146,17 +152,18 @@ static void zend_stat_sample(zend_stat_sampler_t *arg) {
                         arg->pid, function, XtOffsetOf(zend_op_array, filename));
 
                 if (!sample.location.file) {
-                    sample.location.line = 0;
-                    sample.type = 0;
+                    sample.type = ZEND_STAT_SAMPLE_MEMORY;
                 }
             }
         }
+    } else {
+        sample.type = ZEND_STAT_SAMPLE_INTERNAL;
     }
 
     if (UNEXPECTED(zend_stat_sampler_read(arg->pid,
             ((char*) function) + XtOffsetOf(zend_function, common.scope),
             &scope, sizeof(zend_class_entry*)) != SUCCESS)) {
-        sample.type = 0;
+        sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
         goto _zend_stat_sample_insert;
     } else if (scope) {
@@ -165,6 +172,8 @@ static void zend_stat_sample(zend_stat_sampler_t *arg) {
                 arg->pid, scope, XtOffsetOf(zend_class_entry, name));
 
         if (UNEXPECTED(NULL == sample.symbol.scope)) {
+            sample.type = ZEND_STAT_SAMPLE_MEMORY;
+
             goto _zend_stat_sample_insert;
         }
     }
@@ -174,7 +183,7 @@ static void zend_stat_sample(zend_stat_sampler_t *arg) {
             arg->pid, function, XtOffsetOf(zend_function, common.function_name));
 
     if (UNEXPECTED(NULL == sample.symbol.function)) {
-        sample.symbol.scope = NULL;
+        sample.type = ZEND_STAT_SAMPLE_MEMORY;
     }
 
 _zend_stat_sample_insert:

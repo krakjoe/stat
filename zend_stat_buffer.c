@@ -154,7 +154,12 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
 
         zend_stat_io_write_literal_ex(fd, "}", return);
 
-        if (sampled.location.file) {
+        if (sampled.type == ZEND_STAT_SAMPLE_MEMORY) {
+            zend_stat_io_write_literal_ex(fd, "}\n", return);
+            continue;
+        }
+
+        if (sampled.type != ZEND_STAT_SAMPLE_INTERNAL) {
             zend_stat_io_write_literal_ex(fd, ", \"location\": {", return);
 
             zend_stat_io_write_literal_ex(fd, "\"file\": \"", return);
@@ -173,11 +178,11 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
             if (sampled.symbol.scope) {
                 zend_stat_io_write_literal_ex(fd, "\"scope\": \"", return);
                 zend_stat_io_write_string_ex(fd, sampled.symbol.scope, return);
-                zend_stat_io_write_literal_ex(fd, "\"", return);
+                zend_stat_io_write_literal_ex(fd, "\", ", return);
             }
 
             if (sampled.symbol.function) {
-                zend_stat_io_write_literal_ex(fd, ", \"function\": \"", return);
+                zend_stat_io_write_literal_ex(fd, "\"function\": \"", return);
                 zend_stat_io_write_string_ex(fd, sampled.symbol.function, return);
                 zend_stat_io_write_literal_ex(fd, "\"", return);
             }
