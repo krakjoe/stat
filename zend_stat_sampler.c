@@ -288,6 +288,8 @@ void zend_stat_sampler_deactivate(zend_stat_sampler_t *sampler) { /* {{{ */
 
     pthread_cond_destroy(&sampler->timer.cond);
     pthread_mutex_destroy(&sampler->timer.mutex);
+
+    sampler->timer.active = 0;
 } /* }}} */
 
 #endif	/* ZEND_STAT_SAMPLER */
