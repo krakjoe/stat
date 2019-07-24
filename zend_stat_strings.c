@@ -114,6 +114,8 @@ _zend_stat_strings_check:
 
     __atomic_exchange_n(&copy->locked, 0, __ATOMIC_RELAXED);
 
+    free(string);
+
     return copy;
 }
 
