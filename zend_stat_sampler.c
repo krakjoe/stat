@@ -93,7 +93,7 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(pid_
 } /* }}} */
 
 /* {{{ */
-static void zend_stat_sample(zend_stat_sampler_t *sampler) {
+static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
     zend_execute_data *fp, frame;
     zend_class_entry *scope = NULL;
     zend_stat_sample_t sample = zend_stat_sample_empty;
