@@ -116,8 +116,8 @@ static void zend_stat_sample(zend_stat_sampler_t *sampler) {
     }
 
     if (UNEXPECTED((zend_stat_sampler_read(sample.pid,
-                        fp,
-                        &frame, sizeof(zend_execute_data)) != SUCCESS))) {
+            fp,
+            &frame, sizeof(zend_execute_data)) != SUCCESS))) {
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
         goto _zend_stat_sample_insert;
@@ -128,18 +128,18 @@ static void zend_stat_sample(zend_stat_sampler_t *sampler) {
 
         if (EXPECTED(sample.arginfo.length > 0)) {
             if (UNEXPECTED(zend_stat_sampler_read(sample.pid,
-                            ZEND_CALL_ARG(fp, 1),
-                            &sample.arginfo.info,
-                            sizeof(zval) * sample.arginfo.length) != SUCCESS)) {
+                    ZEND_CALL_ARG(fp, 1),
+                    &sample.arginfo.info,
+                    sizeof(zval) * sample.arginfo.length) != SUCCESS)) {
                 sample.arginfo.length = 0;
             }
         }
     }
 
     if (UNEXPECTED((zend_stat_sampler_read(sample.pid,
-                        frame.func,
-                        &function, sizeof(zend_function*)) != SUCCESS) ||
-                   (NULL == function))) {
+            frame.func,
+            &function, sizeof(zend_function*)) != SUCCESS) ||
+        (NULL == function))) {
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
         goto _zend_stat_sample_insert;
@@ -148,7 +148,7 @@ static void zend_stat_sample(zend_stat_sampler_t *sampler) {
     if (UNEXPECTED(zend_stat_sampler_read(sample.pid,
             ZEND_STAT_ADDRESSOF(zend_function, frame.func, type),
             &sample.type, sizeof(zend_uchar)) != SUCCESS)) {
-        sample.type = ZEND_STAT_SAMPLE_MEMORY;
+            sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
         goto _zend_stat_sample_insert;
     }
