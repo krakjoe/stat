@@ -208,41 +208,42 @@ static zend_always_inline uint32_t zend_stat_sampler_timer_increment(uint64_t cu
 static void* zend_stat_sampler(zend_stat_sampler_t *sampler) { /* {{{ */
     struct zend_stat_sampler_timer_t
         *timer = &sampler->timer;
-    struct timespec delay;
+    struct timespec clk;
+
+    if (clock_gettime(CLOCK_REALTIME, &clk) != SUCCESS) {
+        goto _zend_stat_sampler_exit;
+    }
 
     pthread_mutex_lock(&timer->mutex);
 
     while (!timer->closed) {
-        if (clock_gettime(CLOCK_REALTIME, &delay) != SUCCESS) {
-            break;
-        }
-
-        delay.tv_sec +=
+        clk.tv_sec +=
             zend_stat_sampler_timer_increment(
-                delay.tv_nsec +
+                clk.tv_nsec +
                     timer->interval,
-        &delay.tv_nsec);
+        &clk.tv_nsec);
 
-        switch (pthread_cond_timedwait(&timer->cond, &timer->mutex, &delay)) {
-            case EINVAL:
-                perror("oh");
-
+        switch (pthread_cond_timedwait(&timer->cond, &timer->mutex, &clk)) {
             case ETIMEDOUT:
                 zend_stat_sample(sampler);
             break;
+
+            case EINVAL:
+                /* clock is in the past, loop to catch up */
 
             case SUCCESS:
                 /* do nothing */
                 break;
 
             default:
-                goto _zend_stat_sampler_routine_leave;
+                goto _zend_stat_sampler_leave;
         }
     }
 
-_zend_stat_sampler_routine_leave:
+_zend_stat_sampler_leave:
     pthread_mutex_unlock(&timer->mutex);
 
+_zend_stat_sampler_exit:
     pthread_exit(NULL);
 } /* }}} */
 
