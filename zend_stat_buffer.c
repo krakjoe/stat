@@ -197,7 +197,13 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
             zend_stat_io_write_literal_ex(fd, ", \"arginfo\": [", return);
 
             while (it < end) {
+                zend_stat_io_write_literal_ex(fd, "\"", return);
                 switch (Z_TYPE_P(it)) {
+                    case IS_UNDEF:
+                    case IS_NULL:
+                        zend_stat_io_write_literal_ex(fd, "null", return);
+                    break;
+
                     case IS_REFERENCE:
                         zend_stat_io_write_literal_ex(fd, "reference", return);
                     break;
@@ -221,6 +227,18 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
                         zend_stat_io_write_literal_ex(fd, ")", return);
                     break;
 
+                    case IS_STRING:
+                        zend_stat_io_write_literal_ex(fd, "string", return);
+                    break;
+
+                    case IS_OBJECT:
+                        zend_stat_io_write_literal_ex(fd, "object", return);
+                    break;
+
+                    case IS_RESOURCE:
+                        zend_stat_io_write_literal_ex(fd, "resource", return);
+                    break;
+
                     default: {
                         const char *type = zend_get_type_by_const(Z_TYPE_P(it));
 
@@ -230,6 +248,7 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
                         }
                     }
                 }
+                zend_stat_io_write_literal_ex(fd, "\"", return);
                 it++;
 
                 if (it < end) {

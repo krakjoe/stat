@@ -69,7 +69,7 @@ Stat will send each sample as a json encoded packet, one sample per line with th
             "scope": "string",
             "function": "string"
         },
-        "arginfo": [...type]
+        "arginfo": [..."string"]
     }
 
 Notes:
