@@ -96,8 +96,6 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(pid_
 static void zend_stat_sample(zend_stat_sampler_t *sampler) {
     zend_execute_data *fp, frame;
     zend_class_entry *scope = NULL;
-    zend_function *function = NULL;
-    zend_op *opline = NULL;
     zend_stat_sample_t sample = zend_stat_sample_empty;
 
     sample.pid = sampler->pid;
@@ -134,15 +132,6 @@ static void zend_stat_sample(zend_stat_sampler_t *sampler) {
                 sample.arginfo.length = 0;
             }
         }
-    }
-
-    if (UNEXPECTED((zend_stat_sampler_read(sample.pid,
-            frame.func,
-            &function, sizeof(zend_function*)) != SUCCESS) ||
-        (NULL == function))) {
-        sample.type = ZEND_STAT_SAMPLE_MEMORY;
-
-        goto _zend_stat_sample_insert;
     }
 
     if (UNEXPECTED(zend_stat_sampler_read(sample.pid,
