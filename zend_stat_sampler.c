@@ -210,7 +210,7 @@ static void* zend_stat_sampler(zend_stat_sampler_t *sampler) { /* {{{ */
 
     pthread_mutex_lock(&sampler->timer.mutex);
 
-    while (!__atomic_load_n(&sampler->timer.closed, __ATOMIC_SEQ_CST)) {
+    while (!sampler->timer.closed) {
         if (clock_gettime(CLOCK_REALTIME, &ts) != SUCCESS) {
             break;
         }
@@ -262,6 +262,8 @@ void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_lo
             (void*)(void*)
                 zend_stat_sampler,
             (void*) sampler) != SUCCESS) {
+        pthread_cond_destroy(&sampler->timer.cond);
+        pthread_mutex_destroy(&sampler->timer.mutex);
         return;
     }
 
@@ -270,14 +272,13 @@ void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_lo
 
 void zend_stat_sampler_deactivate(zend_stat_sampler_t *sampler) { /* {{{ */
     if (!sampler->timer.active) {
-        pthread_cond_destroy(&sampler->timer.cond);
-        pthread_mutex_destroy(&sampler->timer.mutex);
         return;
     }
 
-    __atomic_store_n(&sampler->timer.closed, 1, __ATOMIC_SEQ_CST);
-
     pthread_mutex_lock(&sampler->timer.mutex);
+
+    sampler->timer.closed = 1;
+
     pthread_cond_signal(&sampler->timer.cond);
     pthread_mutex_unlock(&sampler->timer.mutex);
 
