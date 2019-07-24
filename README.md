@@ -2,7 +2,7 @@
 
 Conventional PHP profilers use various Zend API's to overload the engine in order to build and usually dump (or serve) a profile for one single process. This gives us a problem when we want to look at a whole application in profile - we can't enable the profiler for every process in a pool in a production (or even staging) environment. Conventional profilers undertake their work in the same thread as is supposed to be executing your script, severely interfering with the performance characteristics of the code they are meant to be providing a profile for.
 
-Stat is an unconventional provider of profile information: Stat uses an atomic ring buffer to provide live profile information about a set of PHP processes over a TCP or unix socket.
+Stat is an unconventional provider of profile information: Stat uses an atomic ring buffer to provide realtime profile information about a set of PHP processes over a TCP or unix socket.
 
 # Requirements
 

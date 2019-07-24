@@ -159,7 +159,7 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
             continue;
         }
 
-        if (sampled.type != ZEND_STAT_SAMPLE_INTERNAL) {
+        if (sampled.location.file) {
             zend_stat_io_write_literal_ex(fd, ", \"location\": {", return);
 
             zend_stat_io_write_literal_ex(fd, "\"file\": \"", return);
