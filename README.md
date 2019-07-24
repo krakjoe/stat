@@ -35,9 +35,10 @@ The following configuration directives are available:
 | Name           | Default                   | Purpose                                                        |
 |:---------------|:--------------------------|:---------------------------------------------------------------|
 |stat.slots      |`10000`                    | Set to the maximum number of samples in the buffer             |
+|stat.interval   |`1000`                     | Set interval for sampling in microseconds                      |
+|stat.arginfo    |`Off`                      | Enable collection of argument info in traces                   |
 |stat.strings    |`32M`                      | Set size of string buffer (supports suffixes, be generous)     |
 |stat.socket     |`zend.stat.socket`         | Set path to socket, setting to 0 disables socket               |
-|stat.interval   |`1000`                     | Set interval for sampling in microseconds                      |
 |stat.dump       |`0`                        | Set to a file descriptor for dump on shutdown                  |
 
 ## To communicate with stat:
@@ -67,7 +68,8 @@ Stat will send each sample as a json encoded packet, one sample per line with th
         "symbol": {
             "scope": "string",
             "function": "string"
-        }
+        },
+        "arginfo": [...type]
     }
 
 Notes:

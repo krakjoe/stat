@@ -138,9 +138,9 @@ static void zend_stat_activate(void) {
     }
 
 #if defined(ZTS)
-    zend_stat_sampler_activate(&zend_stat_sampler, syscall(SYS_gettid), zend_stat_ini_interval, zend_stat_buffer);
+    zend_stat_sampler_activate(&zend_stat_sampler, syscall(SYS_gettid), zend_stat_ini_interval, zend_stat_ini_arginfo, zend_stat_buffer);
 #else
-    zend_stat_sampler_activate(&zend_stat_sampler, getpid(), zend_stat_ini_interval, zend_stat_buffer);
+    zend_stat_sampler_activate(&zend_stat_sampler, getpid(), zend_stat_ini_interval, zend_stat_ini_arginfo, zend_stat_buffer);
 #endif
 }
 

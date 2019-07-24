@@ -21,6 +21,10 @@
 
 #include "zend_stat_strings.h"
 
+#ifndef ZEND_STAT_SAMPLE_MAX_ARGINFO
+#   define ZEND_STAT_SAMPLE_MAX_ARGINFO 12
+#endif
+
 typedef struct _zend_stat_sample_state_t {
     zend_bool                busy;
     zend_bool                used;
@@ -43,6 +47,10 @@ typedef struct _zend_stat_sample_t {
         zend_stat_string_t  *scope;
         zend_stat_string_t  *function;
     } symbol;
+    struct {
+        uint32_t             length;
+        zval                 info[ZEND_STAT_SAMPLE_MAX_ARGINFO];
+    } arginfo;
 } zend_stat_sample_t;
 
 #define ZEND_STAT_SAMPLE_UNUSED   0
@@ -70,11 +78,12 @@ typedef struct _zend_stat_sampler_t {
         zend_bool       active;
         pthread_t       thread;
     } timer;
+    zend_bool           arginfo;
     zend_stat_buffer_t *buffer;
     zend_heap_header_t *heap;
     zend_execute_data  *fp;
 } zend_stat_sampler_t;
 
-void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_long interval, zend_stat_buffer_t *buffer);
+void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_long interval, zend_bool arginfo, zend_stat_buffer_t *buffer);
 void zend_stat_sampler_deactivate(zend_stat_sampler_t *sampler);
 #endif	/* ZEND_STAT_SAMPLER_H */

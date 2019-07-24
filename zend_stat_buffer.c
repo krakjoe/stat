@@ -190,6 +190,55 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
             zend_stat_io_write_literal_ex(fd, "}", return);
         }
 
+        if (sampled.arginfo.length) {
+            zval *it = sampled.arginfo.info,
+                 *end = it + sampled.arginfo.length;
+
+            zend_stat_io_write_literal_ex(fd, ", \"arginfo\": [", return);
+
+            while (it < end) {
+                switch (Z_TYPE_P(it)) {
+                    case IS_REFERENCE:
+                        zend_stat_io_write_literal_ex(fd, "reference", return);
+                    break;
+
+                    case IS_DOUBLE:
+                        zend_stat_io_write_literal_ex(fd, "float(", return);
+                        zend_stat_io_write_double_ex(fd, Z_DVAL_P(it), return);
+                        zend_stat_io_write_literal_ex(fd, ")", return);
+                    break;
+
+                    case IS_LONG:
+                        zend_stat_io_write_literal_ex(fd, "int(", return);
+                        zend_stat_io_write_int_ex(fd, Z_LVAL_P(it), return);
+                        zend_stat_io_write_literal_ex(fd, ")", return);
+                    break;
+
+                    case IS_TRUE:
+                    case IS_FALSE:
+                        zend_stat_io_write_literal_ex(fd, "bool(", return);
+                        zend_stat_io_write_int_ex(fd, zend_is_true(it), return);
+                        zend_stat_io_write_literal_ex(fd, ")", return);
+                    break;
+
+                    default: {
+                        const char *type = zend_get_type_by_const(Z_TYPE_P(it));
+
+                        if (EXPECTED(type)) {
+                            zend_stat_io_write_ex(fd,
+                                (char*) type, strlen(type), return);
+                        }
+                    }
+                }
+                it++;
+
+                if (it < end) {
+                    zend_stat_io_write_literal_ex(fd, ",", return);
+                }
+            }
+            zend_stat_io_write_literal_ex(fd, "]", return);
+        }
+
         zend_stat_io_write_literal_ex(fd, "}\n", return);
     }
 }
