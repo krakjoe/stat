@@ -190,7 +190,7 @@ _zend_stat_sample_insert:
     zend_stat_buffer_insert(arg->buffer, &sample);
 } /* }}} */
 
-static zend_always_inline uint32_t zend_stat_sampler_timer_increment(uint64_t cumulative, uint64_t *ns) { /* {{{ */
+static zend_always_inline uint32_t zend_stat_sampler_clock(uint64_t cumulative, uint64_t *ns) { /* {{{ */
     uint32_t result = 0;
 
     while (cumulative >= 1000000000L) {
@@ -218,7 +218,7 @@ static void* zend_stat_sampler(zend_stat_sampler_t *sampler) { /* {{{ */
 
     while (!timer->closed) {
         clk.tv_sec +=
-            zend_stat_sampler_timer_increment(
+            zend_stat_sampler_clock(
                 clk.tv_nsec +
                     timer->interval,
         &clk.tv_nsec);
