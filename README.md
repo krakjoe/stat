@@ -72,9 +72,9 @@ Stat will send each sample as a json encoded packet, one sample per line with th
 
 Notes:
 
-  - the absense`location` and `symbol` signifies that the executor is not currently executing
-  - the presence of `location` and absense of `symbol` signifies that the executor is currently executing in a file
-  - the absense of `location` and presence of `symbol` signifies that the executor is currently executing internal code
+  - the absence`location` and `symbol` signifies that the executor is not currently executing
+  - the presence of `location` and absence of `symbol` signifies that the executor is currently executing in a file
+  - the absence of `location` and presence of `symbol` signifies that the executor is currently executing internal code
 
 ### Internals
 
