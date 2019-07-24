@@ -206,22 +206,24 @@ static zend_always_inline uint32_t zend_stat_sampler_timer_increment(uint64_t cu
 } /* }}} */
 
 static void* zend_stat_sampler(zend_stat_sampler_t *sampler) { /* {{{ */
-    struct timespec ts;
+    struct zend_stat_sampler_timer_t
+        *timer = &sampler->timer;
+    struct timespec delay;
 
-    pthread_mutex_lock(&sampler->timer.mutex);
+    pthread_mutex_lock(&timer->mutex);
 
-    while (!sampler->timer.closed) {
-        if (clock_gettime(CLOCK_REALTIME, &ts) != SUCCESS) {
+    while (!timer->closed) {
+        if (clock_gettime(CLOCK_REALTIME, &delay) != SUCCESS) {
             break;
         }
 
-        ts.tv_sec +=
+        delay.tv_sec +=
             zend_stat_sampler_timer_increment(
-                ts.tv_nsec +
-                    sampler->timer.interval,
-        &ts.tv_nsec);
+                delay.tv_nsec +
+                    timer->interval,
+        &delay.tv_nsec);
 
-        switch (pthread_cond_timedwait(&sampler->timer.cond, &sampler->timer.mutex, &ts)) {
+        switch (pthread_cond_timedwait(&timer->cond, &timer->mutex, &delay)) {
             case ETIMEDOUT:
             case EINVAL:
                 zend_stat_sample(sampler);
@@ -237,7 +239,7 @@ static void* zend_stat_sampler(zend_stat_sampler_t *sampler) { /* {{{ */
     }
 
 _zend_stat_sampler_routine_leave:
-    pthread_mutex_unlock(&sampler->timer.mutex);
+    pthread_mutex_unlock(&timer->mutex);
 
     pthread_exit(NULL);
 } /* }}} */

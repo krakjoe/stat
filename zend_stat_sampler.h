@@ -62,7 +62,7 @@ typedef struct _zend_heap_header_t zend_heap_header_t;
 
 typedef struct _zend_stat_sampler_t {
     pid_t               pid;
-    struct {
+    struct zend_stat_sampler_timer_t {
         pthread_mutex_t mutex;
         pthread_cond_t  cond;
         zend_long       interval;
