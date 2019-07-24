@@ -190,6 +190,21 @@ _zend_stat_sample_insert:
     zend_stat_buffer_insert(arg->buffer, &sample);
 } /* }}} */
 
+static zend_always_inline uint32_t zend_stat_sampler_timer_increment(uint64_t cumulative, uint64_t *ns) { /* {{{ */
+    uint32_t result = 0;
+
+    while (cumulative >= 1000000000L) {
+        asm("" : "+rm"(cumulative));
+
+        cumulative -= 1000000000L;
+        result++;
+    }
+
+    *ns = cumulative;
+
+    return result;
+} /* }}} */
+
 static void* zend_stat_sampler(zend_stat_sampler_t *sampler) { /* {{{ */
     struct timespec ts;
 
@@ -200,8 +215,11 @@ static void* zend_stat_sampler(zend_stat_sampler_t *sampler) { /* {{{ */
             break;
         }
 
-        ts.tv_nsec +=
-            sampler->timer.interval;
+        ts.tv_sec +=
+            zend_stat_sampler_timer_increment(
+                ts.tv_nsec +
+                    sampler->timer.interval,
+        &ts.tv_nsec);
 
         switch (pthread_cond_timedwait(&sampler->timer.cond, &sampler->timer.mutex, &ts)) {
             case ETIMEDOUT:
