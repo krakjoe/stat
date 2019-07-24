@@ -224,8 +224,10 @@ static void* zend_stat_sampler(zend_stat_sampler_t *sampler) { /* {{{ */
         &delay.tv_nsec);
 
         switch (pthread_cond_timedwait(&timer->cond, &timer->mutex, &delay)) {
-            case ETIMEDOUT:
             case EINVAL:
+                perror("oh");
+
+            case ETIMEDOUT:
                 zend_stat_sample(sampler);
             break;
 
