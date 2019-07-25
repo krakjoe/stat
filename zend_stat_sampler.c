@@ -187,7 +187,7 @@ _zend_stat_sample_enter:
         }
     }
 
-    /* Failures to read from here onward indicates that the sampled function has been
+    /* Failures to read from here onward indicate that the sampled function has been
         or is being destroyed */
 
     if (UNEXPECTED(zend_stat_sampler_read(sample.pid,
