@@ -68,23 +68,29 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(pid_
     zend_string *string, *result;
     size_t length;
 
-    if (zend_stat_sampler_read(pid,
+    /* Failure to read indicates the string was freed,
+        all of file, class, and function names should not fail since they
+        cannot normally be freed during a request.
+       Currently stat doesn't read any other strings ...
+    */
+
+    if (UNEXPECTED(zend_stat_sampler_read(pid,
             ZEND_STAT_ADDRESS_OFFSET(symbol, offset),
-            &string, sizeof(zend_string*)) != SUCCESS) {
+            &string, sizeof(zend_string*)) != SUCCESS)) {
         return NULL;
     }
 
-    if (zend_stat_sampler_read(pid,
+    if (UNEXPECTED(zend_stat_sampler_read(pid,
             ZEND_STAT_ADDRESSOF(zend_string, string, len),
-            &length, sizeof(size_t)) != SUCCESS) {
+            &length, sizeof(size_t)) != SUCCESS)) {
         return NULL;
     }
 
     result = zend_string_alloc(length, 1);
 
-    if (zend_stat_sampler_read(pid,
+    if (UNEXPECTED(zend_stat_sampler_read(pid,
             string,
-            result, ZEND_MM_ALIGNED_SIZE(_ZSTR_STRUCT_SIZE(length))) != SUCCESS) {
+            result, ZEND_MM_ALIGNED_SIZE(_ZSTR_STRUCT_SIZE(length))) != SUCCESS)) {
         pefree(result, 1);
         return NULL;
     }
@@ -101,6 +107,7 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
     sample.pid = sampler->pid;
     sample.elapsed = zend_stat_time();
 
+    /* This can never fail while the sampler is active */
     zend_stat_sampler_read(sample.pid,
         ZEND_STAT_ADDRESSOF(
             zend_heap_header_t, sampler->heap, size),
@@ -108,6 +115,7 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
 
     if (UNEXPECTED((zend_stat_sampler_read(sample.pid,
             sampler->fp, &fp, sizeof(zend_execute_data*)) != SUCCESS) || (NULL == fp))) {
+        /* There is no current execute data set */
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
         goto _zend_stat_sample_insert;
@@ -116,6 +124,7 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
     if (UNEXPECTED((zend_stat_sampler_read(sample.pid,
             fp,
             &frame, sizeof(zend_execute_data)) != SUCCESS))) {
+        /* The frame was freed before it could be sampled */
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
         goto _zend_stat_sample_insert;
@@ -129,15 +138,20 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
                     ZEND_CALL_ARG(fp, 1),
                     &sample.arginfo.info,
                     sizeof(zval) * sample.arginfo.length) != SUCCESS)) {
+                /* The stack was freed by the sampled process, we don't bail, because
+                    the rest of the sampled frame should be readable */
                 sample.arginfo.length = 0;
             }
         }
     }
 
+    /* Failures to read from here onward indicate that the sampled function has been
+        or is being destroyed */
+
     if (UNEXPECTED(zend_stat_sampler_read(sample.pid,
             ZEND_STAT_ADDRESSOF(zend_function, frame.func, type),
             &sample.type, sizeof(zend_uchar)) != SUCCESS)) {
-            sample.type = ZEND_STAT_SAMPLE_MEMORY;
+        sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
         goto _zend_stat_sample_insert;
     }

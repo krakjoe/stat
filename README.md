@@ -69,7 +69,7 @@ Stat will send each sample as a json encoded packet, one sample per line with th
             "scope": "string",
             "function": "string"
         },
-        "arginfo": [..."string"]
+        "arginfo": ["type(meta)" ...]
     }
 
 Notes:
@@ -89,10 +89,23 @@ All memory is shared among forks and threads, and stat uses atomics, for maximum
 
 Should mapping fail, because there isn't enough memory for example, Stat will not stop the process from starting up but will only output a warning. Should mapping succeed, the configured socket will be opened. Should opening the socket fail, Stat will be shutdown immediately but allow the process to continue.
 
-On request (RINIT) stat creates a timer that executes Stat's sampler for the current request at the configured interval.
+On request (RINIT) stat creates a sampler for the current request.
 
 ### Sampler
 
-The sampler is always executed in a thread separate to the thread meant to be executing PHP code.
+Rather than using Zend hooks and interfering with the VM or runtime (function tables etc), Stats sampler is based on parallel uio. When the sampler is created on RINIT, it creates a timer thread which keeps time without repeated syscalls and periodically invokes the sampling routine at the configured interval.
 
-Rather than using Zend hooks and overloads to extract information from the request, it reads directly from the process memory using uio.
+Because sampling occurs in parallel, it's possible to run PHP code at full speed while profiling: In (bench) testing, the overhead of stat running micro bench is statistically insignificant (1-2%, the same margin as without stat loaded) even with an interval of 10ms (100k samples per second).
+
+Using uio in parallel, rather than trying to load from the memory of the target process directly protects stat from segfaults - the module globals which the executor uses at runtime are not manipulated atomically by zend, so that if the sampling thread tries to read a location in memory from the PHP process that changes while the read occurs, a segfault would result even if the sampler performs the read atomically - UIO will simply fail under conditions that would cause faults.
+
+This does mean that it's possible (in theory) for sampling to fail. However, in practice, this is not really an issue: When there is a frame pointer in executor globals, it will be copied at once to the stack of the sampler, so that even if the frame pointer changes in the target process while the sampler is working, it doesn't matter because the sampler is still working on the frame it sampled.
+
+Fetching argument information for a frame is disabled by default because this is in theory less reliable. The stack space is allocated with the frame by zend, so when the sampler copies the frame to its stack from the heap of the target process, it doesn't have the arguments (they come after the frame). In the time between the sampler copying the frame (without arguments) to its stack, and the sampler copying the arguments from the end of the frame on the heap of the target process, the arguments and their values may have changed. In practice, this is behaviour we are used too - when Zend gathers a backtrace, the values shown are the values at the time of the trace, not at the time of the call.
+
+#### TODO
+
+ - Control Socket ?
+ - Binary API ?
+ - CI
+ - Tests
