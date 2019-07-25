@@ -78,7 +78,7 @@ Notes:
   - the presence of `location` and absence of `symbol` signifies that the executor is currently executing in a file
   - the absence of `location` and presence of `symbol` signifies that the executor is currently executing internal code
 
-### Internals
+### Startup
 
 On startup (MINIT) Stat maps:
 
@@ -89,7 +89,7 @@ All memory is shared among forks and threads, and stat uses atomics, for maximum
 
 Should mapping fail, because there isn't enough memory for example, Stat will not stop the process from starting up but will only output a warning. Should mapping succeed, the configured socket will be opened. Should opening the socket fail, Stat will be shutdown immediately but allow the process to continue.
 
-On request (RINIT) stat creates a sampler for the current request.
+On request startup (RINIT) stat creates a sampler for the current request.
 
 ### Sampler
 
@@ -99,9 +99,19 @@ Because sampling occurs in parallel, it's possible to run PHP code at full speed
 
 Using uio in parallel, rather than trying to load from the memory of the target process directly protects stat from segfaults - the module globals which the executor uses at runtime are not manipulated atomically by zend, so that if the sampling thread tries to read a location in memory from the PHP process that changes while the read occurs, a segfault would result even if the sampler performs the read atomically - UIO will simply fail under conditions that would cause faults.
 
-This does mean that it's possible (in theory) for sampling to fail. However, in practice, this is not really an issue: When there is a frame pointer in executor globals, it will be copied at once to the stack of the sampler, so that even if the frame pointer changes in the target process while the sampler is working, it doesn't matter because the sampler is still working on the frame it sampled.
+This does mean that it's possible (in theory) for sampling to fail. However, in practice, this is not really an issue: When there is a frame pointer in executor globals, it will be copied at once to the stack of the sampler, so that even if the frame pointer changes in the target process while the sampler is working, it doesn't matter because the sampler is still working on the frame it sampled. Another posibility is that the frame is freed between the read of the frame pointer and the frame, in which case failing is the only sensible thing to do as there would be no useful symbol information available to include in a sample.
 
 Fetching argument information for a frame is disabled by default because this is in theory less reliable. The stack space is allocated with the frame by zend, so when the sampler copies the frame to its stack from the heap of the target process, it doesn't have the arguments (they come after the frame). In the time between the sampler copying the frame (without arguments) to its stack, and the sampler copying the arguments from the end of the frame on the heap of the target process, the arguments and their values may have changed. In practice, this is behaviour we are used too - when Zend gathers a backtrace, the values shown are the values at the time of the trace, not at the time of the call.
+
+### Shutdown
+
+On request shutdown (RSHUTDOWN) the current sampler for the current request is deactivated, this doesn't effect any of the samples it collected.
+
+On shutdown (MSHUTDOWN) the socket is closed, the buffer may be dumped to a file descriptor depending on `stat.dump` before being unmapped, finally strings are unmapped.
+
+### Notes
+
+Stat is forward compatible with the JIT, and allows the JIT to run at as near as makes no difference full speed. However, the JIT is not obliged to maintain the instruction pointer, and I'm not sure what that would look like anyway. Hopefully, before the JIT becomes a production feature, there will be a way to detect easily if a function (or maybe an instruction) is in the JIT'd area so that we can treat those samples slightly differently.
 
 #### TODO
 
