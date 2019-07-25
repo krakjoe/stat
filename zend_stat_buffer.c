@@ -28,13 +28,13 @@ struct _zend_stat_buffer_t {
     zend_stat_sample_t *position;
     zend_stat_sample_t *it;
     zend_stat_sample_t *end;
-    zend_ulong slots;
+    zend_ulong max;
     zend_ulong size;
 };
 
-zend_stat_buffer_t* zend_stat_buffer_startup(zend_long slots) {
+zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples) {
     size_t size = sizeof(zend_stat_buffer_t) +
-                  (slots * sizeof(zend_stat_sample_t));
+                  (samples * sizeof(zend_stat_sample_t));
     zend_stat_buffer_t *buffer = zend_stat_map(size);
 
     if (!buffer) {
@@ -49,11 +49,11 @@ zend_stat_buffer_t* zend_stat_buffer_startup(zend_long slots) {
         buffer->it =
         buffer->position =
             (zend_stat_sample_t*) (((char*) buffer) + sizeof(zend_stat_buffer_t));
-    buffer->slots     = slots;
-    buffer->end       = buffer->position + buffer->slots;
+    buffer->max       = samples;
+    buffer->end       = buffer->position + buffer->max;
     buffer->size      = size;
 
-    memset(buffer->samples, 0, sizeof(zend_stat_sample_t) * buffer->slots);
+    memset(buffer->samples, 0, sizeof(zend_stat_sample_t) * buffer->max);
 
     return buffer;
 }
@@ -98,7 +98,7 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
     zend_stat_sample_t *sample;
     zend_ulong tried = 0;
 
-    while (tried++ < buffer->slots) {
+    while (tried++ < buffer->max) {
         zend_stat_sample_t sampled = zend_stat_sample_empty;
         zend_bool _unbusy = 0,
                   _busy   = 1,

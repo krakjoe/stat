@@ -21,7 +21,7 @@
 
 typedef struct _zend_stat_buffer_t zend_stat_buffer_t;
 
-zend_stat_buffer_t* zend_stat_buffer_startup(zend_long slots);
+zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples);
 void zend_stat_buffer_shutdown(zend_stat_buffer_t *);
 
 void zend_stat_buffer_activate(zend_stat_buffer_t *buffer, pid_t pid);

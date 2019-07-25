@@ -34,7 +34,7 @@ The following configuration directives are available:
 
 | Name           | Default                   | Purpose                                                        |
 |:---------------|:--------------------------|:---------------------------------------------------------------|
-|stat.slots      |`10000`                    | Set to the maximum number of samples in the buffer             |
+|stat.samples    |`10000`                    | Set to the maximum number of samples in the buffer             |
 |stat.interval   |`1000`                     | Set interval for sampling in microseconds                      |
 |stat.arginfo    |`Off`                      | Enable collection of argument info                             |
 |stat.strings    |`32M`                      | Set size of string buffer (supports suffixes, be generous)     |

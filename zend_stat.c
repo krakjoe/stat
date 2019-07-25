@@ -90,7 +90,7 @@ static int zend_stat_startup(zend_extension *ze) {
         return SUCCESS;
     }
 
-    if (!(zend_stat_buffer = zend_stat_buffer_startup(zend_stat_ini_slots))) {
+    if (!(zend_stat_buffer = zend_stat_buffer_startup(zend_stat_ini_samples))) {
         zend_stat_strings_shutdown();
         zend_stat_ini_shutdown();
 

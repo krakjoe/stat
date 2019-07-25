@@ -22,20 +22,20 @@
 #include "zend_stat.h"
 #include "zend_stat_ini.h"
 
-zend_long    zend_stat_ini_slots     = -1;
+zend_long    zend_stat_ini_samples     = -1;
 zend_long    zend_stat_ini_interval  = -1;
 zend_bool    zend_stat_ini_arginfo   = 0;
 zend_long    zend_stat_ini_strings   = -1;
 char*        zend_stat_ini_socket    = NULL;
 int          zend_stat_ini_dump      = -1;
 
-static ZEND_INI_MH(zend_stat_ini_update_slots)
+static ZEND_INI_MH(zend_stat_ini_update_samples)
 {
-    if (UNEXPECTED(zend_stat_ini_slots != -1)) {
+    if (UNEXPECTED(zend_stat_ini_samples != -1)) {
         return FAILURE;
     }
 
-    zend_stat_ini_slots =
+    zend_stat_ini_samples =
         zend_atol(
             ZSTR_VAL(new_value),
             ZSTR_LEN(new_value));
@@ -110,7 +110,7 @@ static ZEND_INI_MH(zend_stat_ini_update_dump)
 }
 
 ZEND_INI_BEGIN()
-    ZEND_INI_ENTRY("stat.slots",     "10000",             ZEND_INI_SYSTEM, zend_stat_ini_update_slots)
+    ZEND_INI_ENTRY("stat.samples",   "10000",             ZEND_INI_SYSTEM, zend_stat_ini_update_samples)
     ZEND_INI_ENTRY("stat.interval",  "1000",              ZEND_INI_SYSTEM, zend_stat_ini_update_interval)
     ZEND_INI_ENTRY("stat.arginfo",   "Off",               ZEND_INI_SYSTEM, zend_stat_ini_update_arginfo)
     ZEND_INI_ENTRY("stat.strings",   "32M",               ZEND_INI_SYSTEM, zend_stat_ini_update_strings)

@@ -21,7 +21,7 @@
 
 #include "zend_ini.h"
 
-extern zend_long    zend_stat_ini_slots;
+extern zend_long    zend_stat_ini_samples;
 extern zend_long    zend_stat_ini_interval;
 extern zend_bool    zend_stat_ini_arginfo;
 extern zend_long    zend_stat_ini_strings;
