@@ -98,13 +98,40 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(pid_
     return zend_stat_string(result);
 } /* }}} */
 
+static zend_always_inline zend_bool zend_stat_sample_unwanted(zend_uchar opcode) { /* {{{ */
+    return
+        opcode == ZEND_FE_FREE ||
+        opcode == ZEND_FREE ||
+        opcode == ZEND_ASSERT_CHECK ||
+        opcode == ZEND_VERIFY_RETURN_TYPE ||
+        opcode == ZEND_RECV ||
+        opcode == ZEND_RECV_INIT ||
+        opcode == ZEND_RECV_VARIADIC ||
+        opcode == ZEND_SEND_VAL ||
+        opcode == ZEND_SEND_VAR_EX ||
+        opcode == ZEND_SEND_VAR_NO_REF_EX ||
+        opcode == ZEND_SEND_REF ||
+        opcode == ZEND_SEND_UNPACK ||
+        opcode == ZEND_ROPE_INIT ||
+        opcode == ZEND_ROPE_ADD ||
+        opcode == ZEND_ROPE_END ||
+        opcode == ZEND_FAST_CONCAT ||
+        opcode == ZEND_CAST ||
+        opcode == ZEND_BOOL ||
+        opcode == ZEND_CASE
+    ;
+} /* }}} */
+
 /* {{{ */
 static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
     zend_execute_data *fp, frame;
+    zend_op opline;
     zend_class_entry *scope = NULL;
     zend_stat_sample_t sample = zend_stat_sample_empty;
 
     sample.pid = sampler->pid;
+
+_zend_stat_sample_enter:
     sample.elapsed = zend_stat_time();
 
     /* This can never fail while the sampler is active */
@@ -118,7 +145,7 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
         /* There is no current execute data set */
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
-        goto _zend_stat_sample_insert;
+        goto _zend_stat_sample_return;
     }
 
     if (UNEXPECTED((zend_stat_sampler_read(sample.pid,
@@ -127,7 +154,22 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
         /* The frame was freed before it could be sampled */
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
-        goto _zend_stat_sample_insert;
+        goto _zend_stat_sample_return;
+    }
+
+    if (UNEXPECTED((NULL != frame.opline) &&
+        (zend_stat_sampler_read(sample.pid,
+            frame.opline, &opline, sizeof(zend_op)) != SUCCESS))) {
+        /* The instruction pointer is in an op array that was free'd */
+        sample.type = ZEND_STAT_SAMPLE_MEMORY;
+
+        goto _zend_stat_sample_return;
+    }
+
+    if (UNEXPECTED(zend_stat_sample_unwanted(opline.opcode))) {
+        /* This is an unwanted instruction in the trace, without relevant line
+            information it would only serve to pollute; spin for a new frame */
+        goto _zend_stat_sample_enter;
     }
 
     if (UNEXPECTED(sampler->arginfo)) {
@@ -145,7 +187,7 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
         }
     }
 
-    /* Failures to read from here onward indicate that the sampled function has been
+    /* Failures to read from here onward indicates that the sampled function has been
         or is being destroyed */
 
     if (UNEXPECTED(zend_stat_sampler_read(sample.pid,
@@ -153,26 +195,25 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
             &sample.type, sizeof(zend_uchar)) != SUCCESS)) {
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
-        goto _zend_stat_sample_insert;
+        memset(&sample.arginfo, 0, sizeof(sample.arginfo));
+
+        goto _zend_stat_sample_return;
     }
 
     if (sample.type == ZEND_USER_FUNCTION) {
-        if (UNEXPECTED(zend_stat_sampler_read(sample.pid,
-                ZEND_STAT_ADDRESSOF(zend_op, frame.opline, lineno),
-                &sample.location.line, sizeof(uint32_t)) != SUCCESS)) {
+        sample.type            = ZEND_STAT_SAMPLE_USER;
+        sample.location.line   = opline.lineno;
+        sample.location.file   =
+            zend_stat_sampler_read_string(
+                sample.pid, frame.func, XtOffsetOf(zend_op_array, filename));
+
+        if (UNEXPECTED(NULL == sample.location.file)) {
             sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
-            goto _zend_stat_sample_insert;
-        }
+            memset(&sample.location, 0, sizeof(sample.location));
+            memset(&sample.arginfo,  0, sizeof(sample.arginfo));
 
-        if (sample.location.line) {
-            sample.location.file =
-                zend_stat_sampler_read_string(
-                    sample.pid, frame.func, XtOffsetOf(zend_op_array, filename));
-
-            if (!sample.location.file) {
-                sample.type = ZEND_STAT_SAMPLE_MEMORY;
-            }
+            goto _zend_stat_sample_return;
         }
     } else {
         sample.type = ZEND_STAT_SAMPLE_INTERNAL;
@@ -183,7 +224,10 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
             &scope, sizeof(zend_class_entry*)) != SUCCESS)) {
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
-        goto _zend_stat_sample_insert;
+        memset(&sample.location, 0, sizeof(sample.location));
+        memset(&sample.arginfo,  0, sizeof(sample.arginfo));
+
+        goto _zend_stat_sample_return;
     } else if (scope) {
         sample.symbol.scope =
             zend_stat_sampler_read_string(
@@ -192,7 +236,10 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
         if (UNEXPECTED(NULL == sample.symbol.scope)) {
             sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
-            goto _zend_stat_sample_insert;
+            memset(&sample.location, 0, sizeof(sample.location));
+            memset(&sample.arginfo,  0, sizeof(sample.arginfo));
+
+            goto _zend_stat_sample_return;
         }
     }
 
@@ -202,9 +249,13 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
 
     if (UNEXPECTED(NULL == sample.symbol.function)) {
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
+
+        memset(&sample.location, 0, sizeof(sample.location));
+        memset(&sample.arginfo,  0, sizeof(sample.arginfo));
+        memset(&sample.symbol,   0, sizeof(sample.symbol));
     }
 
-_zend_stat_sample_insert:
+_zend_stat_sample_return:
     zend_stat_buffer_insert(sampler->buffer, &sample);
 } /* }}} */
 
@@ -318,4 +369,4 @@ void zend_stat_sampler_deactivate(zend_stat_sampler_t *sampler) { /* {{{ */
     sampler->timer.active = 0;
 } /* }}} */
 
-#endif	/* ZEND_STAT_SAMPLER */
+#endif /* ZEND_STAT_SAMPLER */

@@ -115,7 +115,6 @@ Stat is forward compatible with the JIT, and allows the JIT to run at as near as
 
 #### TODO
 
- - Control Socket ?
- - Binary API ?
+ - Improve communication
  - CI
  - Tests
