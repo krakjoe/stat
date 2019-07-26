@@ -64,11 +64,15 @@ static zend_always_inline int zend_stat_sampler_read(pid_t pid, const void *remo
     return SUCCESS;
 } /* }}} */
 
-static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(pid_t pid, zend_string *string) { /* {{{ */
+static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(zend_stat_sampler_t *sampler, zend_string *string) { /* {{{ */
     zend_string *result;
     size_t length;
 
-    if (UNEXPECTED(zend_stat_sampler_read(pid,
+    if (EXPECTED((result = zend_hash_index_find_ptr(&sampler->cache, (zend_ulong) string)))) {
+        return (zend_stat_string_t*) result;
+    }
+
+    if (UNEXPECTED(zend_stat_sampler_read(sampler->pid,
             ZEND_STAT_ADDRESSOF(zend_string, string, len),
             &length, sizeof(size_t)) != SUCCESS)) {
         return NULL;
@@ -76,17 +80,23 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(pid_
 
     result = zend_string_alloc(length, 1);
 
-    if (UNEXPECTED(zend_stat_sampler_read(pid,
+    if (UNEXPECTED(zend_stat_sampler_read(sampler->pid,
             string,
             result, ZEND_MM_ALIGNED_SIZE(_ZSTR_STRUCT_SIZE(length))) != SUCCESS)) {
         pefree(result, 1);
         return NULL;
     }
 
+    if (EXPECTED(GC_FLAGS(result) & IS_STR_PERMANENT)) {
+        return zend_hash_index_add_ptr(
+            &sampler->cache,
+            (zend_ulong) string, zend_stat_string(result));
+    }
+
     return zend_stat_string(result);
 } /* }}} */
 
-static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string_at(pid_t pid, const void *symbol, size_t offset) { /* {{{ */
+static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string_at(zend_stat_sampler_t *sampler, const void *symbol, size_t offset) { /* {{{ */
     zend_string *string, *result;
     size_t length;
 
@@ -96,13 +106,13 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string_at(p
        Currently stat doesn't read any other strings ...
     */
 
-    if (UNEXPECTED(zend_stat_sampler_read(pid,
+    if (UNEXPECTED(zend_stat_sampler_read(sampler->pid,
             ZEND_STAT_ADDRESS_OFFSET(symbol, offset),
             &string, sizeof(zend_string*)) != SUCCESS)) {
         return NULL;
     }
 
-    return zend_stat_sampler_read_string(pid, string);
+    return zend_stat_sampler_read_string(sampler, string);
 } /* }}} */
 
 static zend_always_inline zend_bool zend_stat_sample_unlined(zend_uchar opcode) { /* {{{ */
@@ -206,7 +216,7 @@ _zend_stat_sample_enter:
     if (function.type == ZEND_USER_FUNCTION) {
         sample.location.file       =
             zend_stat_sampler_read_string(
-                sample.pid, function.op_array.filename);
+                sampler, function.op_array.filename);
 
         if (UNEXPECTED(NULL == sample.location.file)) {
             sample.type = ZEND_STAT_SAMPLE_MEMORY;
@@ -229,7 +239,7 @@ _zend_stat_sample_enter:
     if (function.common.scope) {
         sample.symbol.scope =
             zend_stat_sampler_read_string_at(
-                sample.pid,
+                sampler,
                 function.common.scope,
                 XtOffsetOf(zend_class_entry, name));
 
@@ -245,7 +255,7 @@ _zend_stat_sample_enter:
 
     sample.symbol.function =
         zend_stat_sampler_read_string(
-            sample.pid, function.common.function_name);
+            sampler, function.common.function_name);
 
     if (UNEXPECTED(NULL == sample.symbol.function)) {
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
@@ -283,6 +293,8 @@ static zend_never_inline void* zend_stat_sampler(zend_stat_sampler_t *sampler) {
         goto _zend_stat_sampler_exit;
     }
 
+    zend_hash_init(&sampler->cache, 32, NULL, NULL, 1);
+
     pthread_mutex_lock(&timer->mutex);
 
     while (!timer->closed) {
@@ -311,6 +323,8 @@ static zend_never_inline void* zend_stat_sampler(zend_stat_sampler_t *sampler) {
 
 _zend_stat_sampler_leave:
     pthread_mutex_unlock(&timer->mutex);
+
+    zend_hash_destroy(&sampler->cache);
 
 _zend_stat_sampler_exit:
     pthread_exit(NULL);
