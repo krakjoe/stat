@@ -125,8 +125,9 @@ static zend_always_inline zend_bool zend_stat_sample_unlined(zend_uchar opcode) 
 /* {{{ */
 static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
     zend_execute_data *fp, frame;
-    zend_op opline;
     zend_class_entry *scope = NULL;
+    zend_function function;
+    zend_op opline;
     zend_stat_sample_t sample = zend_stat_sample_empty;
 
     sample.pid = sampler->pid;
@@ -185,8 +186,7 @@ _zend_stat_sample_enter:
         or is being destroyed */
 
     if (UNEXPECTED(zend_stat_sampler_read(sample.pid,
-            ZEND_STAT_ADDRESSOF(zend_function, frame.func, type),
-            &sample.type, sizeof(zend_uchar)) != SUCCESS)) {
+            frame.func, &function, sizeof(zend_function)) != SUCCESS)) {
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
         memset(&sample.arginfo, 0, sizeof(sample.arginfo));
@@ -194,15 +194,16 @@ _zend_stat_sample_enter:
         goto _zend_stat_sample_return;
     }
 
-    if (sample.type == ZEND_USER_FUNCTION) {
+    if (function.type == ZEND_USER_FUNCTION) {
         sample.type            = ZEND_STAT_SAMPLE_USER;
         sample.location.opcode = opline.opcode;
         if (!zend_stat_sample_unlined(opline.opcode)) {
             sample.location.line   = opline.lineno;
         }
+        sample.location.offset = frame.opline - function.op_array.opcodes;
         sample.location.file   =
             zend_stat_sampler_read_string(
-                sample.pid, frame.func, XtOffsetOf(zend_op_array, filename));
+                sample.pid, &function, XtOffsetOf(zend_op_array, filename));
 
         if (UNEXPECTED(NULL == sample.location.file)) {
             sample.type = ZEND_STAT_SAMPLE_MEMORY;
@@ -216,19 +217,10 @@ _zend_stat_sample_enter:
         sample.type = ZEND_STAT_SAMPLE_INTERNAL;
     }
 
-    if (UNEXPECTED(zend_stat_sampler_read(sample.pid,
-            ZEND_STAT_ADDRESSOF(zend_function, frame.func, common.scope),
-            &scope, sizeof(zend_class_entry*)) != SUCCESS)) {
-        sample.type = ZEND_STAT_SAMPLE_MEMORY;
-
-        memset(&sample.location, 0, sizeof(sample.location));
-        memset(&sample.arginfo,  0, sizeof(sample.arginfo));
-
-        goto _zend_stat_sample_return;
-    } else if (scope) {
+    if (function.common.scope) {
         sample.symbol.scope =
             zend_stat_sampler_read_string(
-                sample.pid, scope, XtOffsetOf(zend_class_entry, name));
+                sample.pid, function.common.scope, XtOffsetOf(zend_class_entry, name));
 
         if (UNEXPECTED(NULL == sample.symbol.scope)) {
             sample.type = ZEND_STAT_SAMPLE_MEMORY;
@@ -242,7 +234,7 @@ _zend_stat_sample_enter:
 
     sample.symbol.function =
         zend_stat_sampler_read_string(
-            sample.pid, frame.func, XtOffsetOf(zend_function, common.function_name));
+            sample.pid, &function, XtOffsetOf(zend_function, common.function_name));
 
     if (UNEXPECTED(NULL == sample.symbol.function)) {
         sample.type = ZEND_STAT_SAMPLE_MEMORY;

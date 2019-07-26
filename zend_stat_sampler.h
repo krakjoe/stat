@@ -42,6 +42,7 @@ typedef struct _zend_stat_sample_t {
     struct {
         zend_stat_string_t  *file;
         uint32_t             line;
+        uint32_t             offset;
         zend_uchar           opcode;
     } location;
     struct {

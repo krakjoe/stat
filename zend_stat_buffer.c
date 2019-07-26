@@ -171,6 +171,9 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
                 zend_stat_io_write_int_ex(fd, sampled.location.line, return);
             }
 
+            zend_stat_io_write_literal_ex(fd, ", \"offset\": ", return);
+            zend_stat_io_write_int_ex(fd, sampled.location.offset, return);
+
             zend_stat_io_write_literal_ex(fd, ", \"opcode\": \"", return);
             zend_stat_io_write_string_ex(fd,
                 zend_stat_string_opcode(sampled.location.opcode), return);
