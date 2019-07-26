@@ -90,7 +90,7 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string_at(p
     zend_string *string, *result;
     size_t length;
 
-    /* Failure to read indicates the string was freed,
+    /* Failure to read indicates the string, or symbol which contains the string, was freed:
         all of file, class, and function names should not fail since they
         cannot normally be freed during a request.
        Currently stat doesn't read any other strings ...
@@ -106,6 +106,8 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string_at(p
 } /* }}} */
 
 static zend_always_inline zend_bool zend_stat_sample_unlined(zend_uchar opcode) { /* {{{ */
+    /* Certain opcodes don't have useful line information because they are internal
+        implementation details where a line isn't relevant normally */
     return
         opcode == ZEND_FE_FREE ||
         opcode == ZEND_FREE ||
@@ -202,24 +204,24 @@ _zend_stat_sample_enter:
     }
 
     if (function.type == ZEND_USER_FUNCTION) {
-        sample.type            = ZEND_STAT_SAMPLE_USER;
-        sample.location.opcode = opline.opcode;
-        if (!zend_stat_sample_unlined(opline.opcode)) {
-            sample.location.line   = opline.lineno;
-        }
-        sample.location.offset = frame.opline - function.op_array.opcodes;
-        sample.location.file   =
+        sample.location.file       =
             zend_stat_sampler_read_string(
                 sample.pid, function.op_array.filename);
 
         if (UNEXPECTED(NULL == sample.location.file)) {
             sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
-            memset(&sample.location, 0, sizeof(sample.location));
             memset(&sample.arginfo,  0, sizeof(sample.arginfo));
 
             goto _zend_stat_sample_return;
         }
+
+        sample.type                = ZEND_STAT_SAMPLE_USER;
+        sample.location.opcode     = opline.opcode;
+        if (EXPECTED(!zend_stat_sample_unlined(opline.opcode))) {
+            sample.location.line   = opline.lineno;
+        }
+        sample.location.offset     = frame.opline - function.op_array.opcodes;
     } else {
         sample.type = ZEND_STAT_SAMPLE_INTERNAL;
     }
