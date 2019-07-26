@@ -73,7 +73,7 @@ static zend_always_inline int zend_stat_sampler_read_symbol(zend_stat_sampler_t 
     }
 #endif
 
-    if (zend_stat_sampler_read(sampler, remote, local, sizeof(zend_function)) != SUCCESS) {
+    if (UNEXPECTED(zend_stat_sampler_read(sampler, remote, local, sizeof(zend_function)) != SUCCESS)) {
         return FAILURE;
     }
 
@@ -411,8 +411,6 @@ void zend_stat_sampler_deactivate(zend_stat_sampler_t *sampler) { /* {{{ */
 
     pthread_cond_destroy(&sampler->timer.cond);
     pthread_mutex_destroy(&sampler->timer.mutex);
-
-    sampler->timer.active = 0;
 } /* }}} */
 
 #endif /* ZEND_STAT_SAMPLER */
