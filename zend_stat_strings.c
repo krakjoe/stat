@@ -35,11 +35,61 @@ typedef struct {
 } zend_stat_strings_t;
 
 static zend_stat_strings_t* zend_stat_strings;
+static zend_stat_string_t*  zend_stat_strings_opcodes[256];
 
 #define ZTSG(v) zend_stat_strings->v
 #define ZTSB(v) ZTSG(buffer).v
 
-static zend_always_inline zend_stat_string_t* zend_stat_strings_copy(zend_string *string) {
+static zend_always_inline zend_stat_string_t* zend_stat_string_init(const char *value, size_t length) {
+    zend_stat_string_t *string;
+    zend_ulong slot;
+    zend_ulong offset;
+    zend_ulong hash = zend_inline_hash_func(value, length);
+
+    if (UNEXPECTED(++ZTSG(used) >= ZTSG(slots))) {
+        --ZTSG(used);
+
+        return NULL;
+    }
+
+    slot = hash % ZTSG(slots);
+
+_zend_stat_string_init_load:
+    string = &ZTSG(strings)[slot];
+
+    if (UNEXPECTED(string->hash == hash)) {
+        return string;
+    } else {
+        if (UNEXPECTED(string->length)) {
+            slot++;
+            slot %= ZTSG(slots);
+
+            goto _zend_stat_string_init_load;
+        }
+    }
+
+    offset = ZTSB(used);
+
+    if (UNEXPECTED((offset + length) >= ZTSB(size))) {
+        /* panic OOM */
+
+        return NULL;
+    }
+
+    string->value = (char*) (((char*) ZTSB(memory)) + offset);
+
+    memcpy(string->value, value, length);
+
+    string->value[length] = 0;
+    string->hash = hash;
+    string->length = length;
+
+    ZTSB(used) += length;
+
+    return string;
+}
+
+static zend_always_inline zend_stat_string_t* zend_stat_string_copy(zend_string *string) {
     zend_stat_string_t *copy;
     zend_ulong slot;
     zend_ulong offset;
@@ -55,17 +105,17 @@ static zend_always_inline zend_stat_string_t* zend_stat_strings_copy(zend_string
 
     slot = ZSTR_HASH(string) % ZTSG(slots);
 
-_zend_stat_strings_load:
+_zend_stat_string_copy_load:
     copy = &ZTSG(strings)[slot];
 
     if (EXPECTED(__atomic_load_n(&copy->length, __ATOMIC_SEQ_CST))) {
-_zend_stat_strings_check:
+_zend_stat_string_copy_check:
         if (UNEXPECTED(copy->hash != ZSTR_HASH(string))) {
             ++slot;
 
             slot %= ZTSG(slots);
 
-            goto _zend_stat_strings_load;
+            goto _zend_stat_string_copy_load;
         }
 
         __atomic_sub_fetch(
@@ -96,7 +146,7 @@ _zend_stat_strings_check:
         __atomic_thread_fence(__ATOMIC_RELEASE);
         __atomic_exchange_n(&copy->locked, 0, __ATOMIC_RELAXED);
 
-        goto _zend_stat_strings_check;
+        goto _zend_stat_string_copy_check;
     }
 
     copy->value = (char*) (((char*) ZTSB(memory)) + offset);
@@ -148,11 +198,33 @@ zend_bool zend_stat_strings_startup(zend_long strings) {
 
     memset(ZTSB(memory), 0, zend_stat_strings_buffer_size);
 
+    {
+        int it = 0, end = 256;
+
+        memset(zend_stat_strings_opcodes, 0, sizeof(zend_stat_strings_opcodes));
+
+        while (it < end) {
+            const char *name = zend_get_opcode_name(it);
+
+            if (name) {
+                zend_stat_strings_opcodes[it] =
+                    zend_stat_string_init(
+                        (char*) name + (sizeof("ZEND_")-1),
+                        strlen(name) - (sizeof("ZEND_")-1));
+            }
+            it++;
+        }
+    }
+
     return 1;
 }
 
+zend_stat_string_t *zend_stat_string_opcode(zend_uchar opcode) {
+    return zend_stat_strings_opcodes[opcode];
+}
+
 zend_stat_string_t *zend_stat_string(zend_string *string) {
-    return zend_stat_strings_copy(string);
+    return zend_stat_string_copy(string);
 }
 
 void zend_stat_strings_shutdown(void) {

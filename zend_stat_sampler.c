@@ -98,7 +98,7 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(pid_
     return zend_stat_string(result);
 } /* }}} */
 
-static zend_always_inline zend_bool zend_stat_sample_unwanted(zend_uchar opcode) { /* {{{ */
+static zend_always_inline zend_bool zend_stat_sample_unlined(zend_uchar opcode) { /* {{{ */
     return
         opcode == ZEND_FE_FREE ||
         opcode == ZEND_FREE ||
@@ -166,12 +166,6 @@ _zend_stat_sample_enter:
         goto _zend_stat_sample_return;
     }
 
-    if (UNEXPECTED(zend_stat_sample_unwanted(opline.opcode))) {
-        /* This is an unwanted instruction in the trace, without relevant line
-            information it would only serve to pollute; spin for a new frame */
-        goto _zend_stat_sample_enter;
-    }
-
     if (UNEXPECTED(sampler->arginfo)) {
         sample.arginfo.length = MIN(frame.This.u2.num_args, ZEND_STAT_SAMPLE_MAX_ARGINFO);
 
@@ -202,7 +196,10 @@ _zend_stat_sample_enter:
 
     if (sample.type == ZEND_USER_FUNCTION) {
         sample.type            = ZEND_STAT_SAMPLE_USER;
-        sample.location.line   = opline.lineno;
+        sample.location.opcode = opline.opcode;
+        if (!zend_stat_sample_unlined(opline.opcode)) {
+            sample.location.line   = opline.lineno;
+        }
         sample.location.file   =
             zend_stat_sampler_read_string(
                 sample.pid, frame.func, XtOffsetOf(zend_op_array, filename));

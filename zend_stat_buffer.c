@@ -160,22 +160,22 @@ void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
         }
 
         if (sampled.location.file) {
-#if 0
-            char *opcode = (char*) zend_get_opcode_name(sampled.location.opcode);
-#endif
             zend_stat_io_write_literal_ex(fd, ", \"location\": {", return);
 
             zend_stat_io_write_literal_ex(fd, "\"file\": \"", return);
             zend_stat_io_write_string_ex(fd, sampled.location.file, return);
             zend_stat_io_write_literal_ex(fd, "\"", return);
 
-            zend_stat_io_write_literal_ex(fd, ", \"line\": ", return);
-            zend_stat_io_write_int_ex(fd, sampled.location.line, return);
-#if 0
-            zend_stat_io_write_literal_ex(fd, ", \"instruction\": \"", return);
-            zend_stat_io_write_ex(fd, opcode, strlen(opcode), return);
+            if (sampled.location.line) {
+                zend_stat_io_write_literal_ex(fd, ", \"line\": ", return);
+                zend_stat_io_write_int_ex(fd, sampled.location.line, return);
+            }
+
+            zend_stat_io_write_literal_ex(fd, ", \"opcode\": \"", return);
+            zend_stat_io_write_string_ex(fd,
+                zend_stat_string_opcode(sampled.location.opcode), return);
             zend_stat_io_write_literal_ex(fd, "\"", return);
-#endif
+
             zend_stat_io_write_literal_ex(fd, "}", return);
         }
 

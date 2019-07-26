@@ -63,7 +63,8 @@ Stat will send each sample as a json encoded packet, one sample per line with th
         },
         "location": {
             "file":  "string",
-            "line":  int
+            "line":  int,
+            "opcode": "string"
         },
         "symbol": {
             "scope": "string",
@@ -77,6 +78,7 @@ Notes:
   - the absence of `location` and `symbol` signifies that the executor is not currently executing
   - the presence of `location` and absence of `symbol` signifies that the executor is currently executing in a file
   - the absence of `location` and presence of `symbol` signifies that the executor is currently executing internal code
+  - the absense of `line` in `location` signifies that a line number is not available for the current instruction
 
 ### Startup
 
