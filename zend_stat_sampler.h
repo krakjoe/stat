@@ -81,7 +81,12 @@ typedef struct _zend_stat_sampler_t {
         zend_bool       active;
         pthread_t       thread;
     } timer;
-    HashTable           cache;
+    struct {
+        HashTable       strings;
+#ifdef ZEND_ACC_IMMUTABLE
+        HashTable       symbols;
+#endif
+    } cache;
     zend_bool           arginfo;
     zend_stat_buffer_t *buffer;
     zend_heap_header_t *heap;

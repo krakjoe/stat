@@ -48,7 +48,7 @@ struct _zend_heap_header_t {
         ((char*) &executor_globals)
 #endif
 
-static zend_always_inline int zend_stat_sampler_read(pid_t pid, const void *remote, void *symbol, size_t size) { /* {{{ */
+static zend_always_inline int zend_stat_sampler_read(zend_stat_sampler_t *sampler, const void *remote, void *symbol, size_t size) { /* {{{ */
     struct iovec local;
     struct iovec target;
 
@@ -57,10 +57,34 @@ static zend_always_inline int zend_stat_sampler_read(pid_t pid, const void *remo
     target.iov_base = (void*) remote;
     target.iov_len = size;
 
-    if (process_vm_readv(pid, &local, 1, &target, 1, 0) != size) {
+    if (process_vm_readv(sampler->pid, &local, 1, &target, 1, 0) != size) {
         return FAILURE;
     }
 
+    return SUCCESS;
+} /* }}} */
+
+static zend_always_inline int zend_stat_sampler_read_symbol(zend_stat_sampler_t *sampler, const zend_function *remote, zend_function *local) { /* {{{ */
+#ifdef ZEND_ACC_IMMUTABLE
+    zend_function *cache;
+
+    if (EXPECTED(cache = zend_hash_index_find_ptr(&sampler->cache.symbols, (zend_ulong) remote))) {
+        return memcpy(local, cache, sizeof(zend_function)) == local ? SUCCESS : FAILURE;
+    }
+#endif
+
+    if (zend_stat_sampler_read(sampler, remote, local, sizeof(zend_function)) != SUCCESS) {
+        return FAILURE;
+    }
+
+#ifdef ZEND_ACC_IMMUTABLE
+    if (EXPECTED(local->common.fn_flags & ZEND_ACC_IMMUTABLE)) {
+        zend_hash_index_add_mem(
+            &sampler->cache.symbols,
+            (zend_ulong) remote,
+            local, sizeof(zend_function));
+    }
+#endif
     return SUCCESS;
 } /* }}} */
 
@@ -68,11 +92,11 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(zend
     zend_string *result;
     size_t length;
 
-    if (EXPECTED((result = zend_hash_index_find_ptr(&sampler->cache, (zend_ulong) string)))) {
+    if (EXPECTED((result = zend_hash_index_find_ptr(&sampler->cache.strings, (zend_ulong) string)))) {
         return (zend_stat_string_t*) result;
     }
 
-    if (UNEXPECTED(zend_stat_sampler_read(sampler->pid,
+    if (UNEXPECTED(zend_stat_sampler_read(sampler,
             ZEND_STAT_ADDRESSOF(zend_string, string, len),
             &length, sizeof(size_t)) != SUCCESS)) {
         return NULL;
@@ -80,7 +104,7 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(zend
 
     result = zend_string_alloc(length, 1);
 
-    if (UNEXPECTED(zend_stat_sampler_read(sampler->pid,
+    if (UNEXPECTED(zend_stat_sampler_read(sampler,
             string,
             result, ZEND_MM_ALIGNED_SIZE(_ZSTR_STRUCT_SIZE(length))) != SUCCESS)) {
         pefree(result, 1);
@@ -89,7 +113,7 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(zend
 
     if (EXPECTED(GC_FLAGS(result) & IS_STR_PERMANENT)) {
         return zend_hash_index_add_ptr(
-            &sampler->cache,
+            &sampler->cache.strings,
             (zend_ulong) string, zend_stat_string(result));
     }
 
@@ -106,7 +130,7 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string_at(z
        Currently stat doesn't read any other strings ...
     */
 
-    if (UNEXPECTED(zend_stat_sampler_read(sampler->pid,
+    if (UNEXPECTED(zend_stat_sampler_read(sampler,
             ZEND_STAT_ADDRESS_OFFSET(symbol, offset),
             &string, sizeof(zend_string*)) != SUCCESS)) {
         return NULL;
@@ -155,12 +179,12 @@ _zend_stat_sample_enter:
     sample.elapsed = zend_stat_time();
 
     /* This can never fail while the sampler is active */
-    zend_stat_sampler_read(sample.pid,
+    zend_stat_sampler_read(sampler,
         ZEND_STAT_ADDRESSOF(
             zend_heap_header_t, sampler->heap, size),
         &sample.memory, sizeof(sample.memory));
 
-    if (UNEXPECTED((zend_stat_sampler_read(sample.pid,
+    if (UNEXPECTED((zend_stat_sampler_read(sampler,
             sampler->fp, &fp, sizeof(zend_execute_data*)) != SUCCESS) || (NULL == fp))) {
         /* There is no current execute data set */
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
@@ -168,7 +192,7 @@ _zend_stat_sample_enter:
         goto _zend_stat_sample_return;
     }
 
-    if (UNEXPECTED((zend_stat_sampler_read(sample.pid,
+    if (UNEXPECTED((zend_stat_sampler_read(sampler,
             fp,
             &frame, sizeof(zend_execute_data)) != SUCCESS))) {
         /* The frame was freed before it could be sampled */
@@ -178,7 +202,7 @@ _zend_stat_sample_enter:
     }
 
     if (UNEXPECTED((NULL != frame.opline) &&
-        (zend_stat_sampler_read(sample.pid,
+        (zend_stat_sampler_read(sampler,
             frame.opline, &opline, sizeof(zend_op)) != SUCCESS))) {
         /* The instruction pointer is in an op array that was free'd */
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
@@ -190,7 +214,7 @@ _zend_stat_sample_enter:
         sample.arginfo.length = MIN(frame.This.u2.num_args, ZEND_STAT_SAMPLE_MAX_ARGINFO);
 
         if (EXPECTED(sample.arginfo.length > 0)) {
-            if (UNEXPECTED(zend_stat_sampler_read(sample.pid,
+            if (UNEXPECTED(zend_stat_sampler_read(sampler,
                     ZEND_CALL_ARG(fp, 1),
                     &sample.arginfo.info,
                     sizeof(zval) * sample.arginfo.length) != SUCCESS)) {
@@ -204,8 +228,8 @@ _zend_stat_sample_enter:
     /* Failures to read from here onward indicate that the sampled function has been
         or is being destroyed */
 
-    if (UNEXPECTED(zend_stat_sampler_read(sample.pid,
-            frame.func, &function, sizeof(zend_function)) != SUCCESS)) {
+    if (UNEXPECTED(zend_stat_sampler_read_symbol(
+            sampler, frame.func, &function) != SUCCESS)) {
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
         memset(&sample.arginfo, 0, sizeof(sample.arginfo));
@@ -284,6 +308,10 @@ static zend_always_inline uint32_t zend_stat_sampler_clock(uint64_t cumulative, 
     return result;
 } /* }}} */
 
+static void zend_stat_sampler_cache_symbol_free(zval *zv) { /* {{{ */
+    free(Z_PTR_P(zv));
+} /* }}} */
+
 static zend_never_inline void* zend_stat_sampler(zend_stat_sampler_t *sampler) { /* {{{ */
     struct zend_stat_sampler_timer_t
         *timer = &sampler->timer;
@@ -293,7 +321,10 @@ static zend_never_inline void* zend_stat_sampler(zend_stat_sampler_t *sampler) {
         goto _zend_stat_sampler_exit;
     }
 
-    zend_hash_init(&sampler->cache, 32, NULL, NULL, 1);
+    zend_hash_init(&sampler->cache.strings, 32, NULL, NULL, 1);
+#ifdef ZEND_ACC_IMMUTABLE
+    zend_hash_init(&sampler->cache.symbols, 32, NULL, zend_stat_sampler_cache_symbol_free, 1);
+#endif
 
     pthread_mutex_lock(&timer->mutex);
 
@@ -324,7 +355,10 @@ static zend_never_inline void* zend_stat_sampler(zend_stat_sampler_t *sampler) {
 _zend_stat_sampler_leave:
     pthread_mutex_unlock(&timer->mutex);
 
-    zend_hash_destroy(&sampler->cache);
+    zend_hash_destroy(&sampler->cache.strings);
+#ifdef ZEND_ACC_IMMUTABLE
+    zend_hash_destroy(&sampler->cache.symbols);
+#endif
 
 _zend_stat_sampler_exit:
     pthread_exit(NULL);
