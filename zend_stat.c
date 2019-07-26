@@ -123,6 +123,7 @@ static void zend_stat_shutdown(zend_extension *ze) {
 
     zend_stat_io_shutdown();
     zend_stat_buffer_shutdown(zend_stat_buffer);
+    zend_stat_strings_shutdown();
     zend_stat_ini_shutdown();
 
     zend_stat_started = 0;
