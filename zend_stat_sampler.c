@@ -64,21 +64,9 @@ static zend_always_inline int zend_stat_sampler_read(pid_t pid, const void *remo
     return SUCCESS;
 } /* }}} */
 
-static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(pid_t pid, const void *symbol, size_t offset) { /* {{{ */
-    zend_string *string, *result;
+static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(pid_t pid, zend_string *string) { /* {{{ */
+    zend_string *result;
     size_t length;
-
-    /* Failure to read indicates the string was freed,
-        all of file, class, and function names should not fail since they
-        cannot normally be freed during a request.
-       Currently stat doesn't read any other strings ...
-    */
-
-    if (UNEXPECTED(zend_stat_sampler_read(pid,
-            ZEND_STAT_ADDRESS_OFFSET(symbol, offset),
-            &string, sizeof(zend_string*)) != SUCCESS)) {
-        return NULL;
-    }
 
     if (UNEXPECTED(zend_stat_sampler_read(pid,
             ZEND_STAT_ADDRESSOF(zend_string, string, len),
@@ -96,6 +84,25 @@ static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string(pid_
     }
 
     return zend_stat_string(result);
+} /* }}} */
+
+static zend_always_inline zend_stat_string_t* zend_stat_sampler_read_string_at(pid_t pid, const void *symbol, size_t offset) { /* {{{ */
+    zend_string *string, *result;
+    size_t length;
+
+    /* Failure to read indicates the string was freed,
+        all of file, class, and function names should not fail since they
+        cannot normally be freed during a request.
+       Currently stat doesn't read any other strings ...
+    */
+
+    if (UNEXPECTED(zend_stat_sampler_read(pid,
+            ZEND_STAT_ADDRESS_OFFSET(symbol, offset),
+            &string, sizeof(zend_string*)) != SUCCESS)) {
+        return NULL;
+    }
+
+    return zend_stat_sampler_read_string(pid, string);
 } /* }}} */
 
 static zend_always_inline zend_bool zend_stat_sample_unlined(zend_uchar opcode) { /* {{{ */
@@ -203,7 +210,7 @@ _zend_stat_sample_enter:
         sample.location.offset = frame.opline - function.op_array.opcodes;
         sample.location.file   =
             zend_stat_sampler_read_string(
-                sample.pid, &function, XtOffsetOf(zend_op_array, filename));
+                sample.pid, function.op_array.filename);
 
         if (UNEXPECTED(NULL == sample.location.file)) {
             sample.type = ZEND_STAT_SAMPLE_MEMORY;
@@ -219,8 +226,10 @@ _zend_stat_sample_enter:
 
     if (function.common.scope) {
         sample.symbol.scope =
-            zend_stat_sampler_read_string(
-                sample.pid, function.common.scope, XtOffsetOf(zend_class_entry, name));
+            zend_stat_sampler_read_string_at(
+                sample.pid,
+                function.common.scope,
+                XtOffsetOf(zend_class_entry, name));
 
         if (UNEXPECTED(NULL == sample.symbol.scope)) {
             sample.type = ZEND_STAT_SAMPLE_MEMORY;
@@ -234,7 +243,7 @@ _zend_stat_sample_enter:
 
     sample.symbol.function =
         zend_stat_sampler_read_string(
-            sample.pid, &function, XtOffsetOf(zend_function, common.function_name));
+            sample.pid, function.common.function_name);
 
     if (UNEXPECTED(NULL == sample.symbol.function)) {
         sample.type = ZEND_STAT_SAMPLE_MEMORY;

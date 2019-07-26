@@ -80,7 +80,7 @@ Notes:
   - the presence of `location` and absence of `symbol` signifies that the executor is currently executing in a file
   - the absence of `location` and presence of `symbol` signifies that the executor is currently executing internal code
   - the absense of `line` in `location` signifies that a line number is not available for the current instruction
-  - the `offset` in `location` refers to the offset from entry to `symbol` of the `opcode`
+  - the `offset` in `location` refers to the offset of `opcode` from entry to `symbol`
 
 ### Startup
 
