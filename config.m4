@@ -16,6 +16,7 @@ if test "$PHP_STAT" != "no"; then
         zend_stat_buffer.c \
         zend_stat_ini.c \
         zend_stat_io.c \
+        zend_stat_stream.c \
         zend_stat_sampler.c \
         zend_stat_sample.c \
         zend_stat_strings.c, 

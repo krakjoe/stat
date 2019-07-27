@@ -23,74 +23,7 @@
 #include "zend_stat_buffer.h"
 #include "zend_stat_io.h"
 
-#include <pthread.h>
-
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <netinet/in.h>
-#include <netdb.h>
-
-typedef enum {
-    ZEND_STAT_IO_UNKNOWN,
-    ZEND_STAT_IO_UNIX,
-    ZEND_STAT_IO_TCP,
-    ZEND_STAT_IO_FAILED
-} zend_stat_io_type_t;
-
-static struct {
-    zend_stat_io_type_t     type;
-    int                     descriptor;
-    struct sockaddr         *address;
-    zend_bool               closed;
-    pthread_t               thread;
-    zend_stat_buffer_t      *buffer;
-} zend_stat_io;
-
-#define ZTIO(v) zend_stat_io.v
-
-#define ZEND_STAT_IO_SIZE(t) ((t == ZEND_STAT_IO_UNIX) ? sizeof(struct sockaddr_un) : sizeof(struct sockaddr_in))
-
-static void* zend_stat_io_routine(void *arg) {
-    struct sockaddr* address =
-        (struct sockaddr*)
-            pemalloc(ZEND_STAT_IO_SIZE(ZTIO(type)), 1);
-    socklen_t length = ZEND_STAT_IO_SIZE(ZTIO(type));
-
-    do {
-        int client;
-
-        memset(
-            address, 0,
-            ZEND_STAT_IO_SIZE(ZTIO(type)));
-
-        client = accept(ZTIO(descriptor), address, &length);
-
-        if (UNEXPECTED(FAILURE == client)) {
-            if (ECONNABORTED == errno ||
-                EINTR == errno) {
-                continue;
-            }
-
-            break;
-        }
-
-        while (zend_stat_buffer_dump(ZTIO(buffer), client)) {
-            if (__atomic_load_n(&ZTIO(closed), __ATOMIC_SEQ_CST)) {
-                if (zend_stat_buffer_empty(ZTIO(buffer))) {
-                    break;
-                }
-            }
-        }
-
-        close(client);
-    } while (!__atomic_load_n(&ZTIO(closed), __ATOMIC_SEQ_CST));
-
-    pefree(address, 1);
-
-    pthread_exit(NULL);
-}
-
-zend_stat_io_type_t zend_stat_io_setup(char *uri, struct sockaddr **sa, int *so) {
+zend_stat_io_type_t zend_stat_io_socket(char *uri, struct sockaddr **sa, int *so) {
     zend_stat_io_type_t type = ZEND_STAT_IO_UNKNOWN;
     char *buffer,
          *address =
@@ -235,46 +168,6 @@ zend_stat_io_type_t zend_stat_io_setup(char *uri, struct sockaddr **sa, int *so)
     return type;
 }
 
-zend_bool zend_stat_io_startup(char *uri, zend_stat_buffer_t *buffer)
-{
-    if (!uri) {
-        return 1;
-    }
-
-    memset(&zend_stat_io, 0, sizeof(zend_stat_io));
-
-    switch (ZTIO(type) = zend_stat_io_setup(uri, &ZTIO(address), &ZTIO(descriptor))) {
-        case ZEND_STAT_IO_UNKNOWN:
-        case ZEND_STAT_IO_FAILED:
-            return 0;
-
-        case ZEND_STAT_IO_UNIX:
-        case ZEND_STAT_IO_TCP:
-            /* all good */
-        break;
-    }
-
-    if (listen(ZTIO(descriptor), 256) != SUCCESS) {
-        zend_error(E_WARNING,
-            "[STAT] %s - cannot listen on %s, ",
-            strerror(errno), uri);
-        zend_stat_io_shutdown();
-        return 0;
-    }
-
-    ZTIO(buffer) = buffer;
-
-    if (pthread_create(&ZTIO(thread), NULL, zend_stat_io_routine, NULL) != SUCCESS) {
-        zend_error(E_WARNING,
-            "[STAT] %s - cannot create thread for io on %s",
-            strerror(errno), uri);
-        zend_stat_io_shutdown();
-        return 0;
-    }
-
-    return 1;
-}
-
 zend_bool zend_stat_io_write(int fd, char *message, size_t length) {
     ssize_t total = 0,
             bytes = 0;
@@ -317,28 +210,4 @@ zend_bool zend_stat_io_write_double(int fd, double num) {
 
     return zend_stat_io_write(fd, dblbuf, strlen(dblbuf));
 }
-
-void zend_stat_io_shutdown(void)
-{
-    if (!ZTIO(descriptor)) {
-        return;
-    }
-
-    if (ZTIO(type) == ZEND_STAT_IO_UNIX) {
-        struct sockaddr_un *un =
-            (struct sockaddr_un*) ZTIO(address);
-
-        unlink(un->sun_path);
-        pefree(un, 1);
-    }
-
-    shutdown(ZTIO(descriptor), SHUT_RD);
-    close(ZTIO(descriptor));
-
-    __atomic_store_n(
-        &ZTIO(closed), 1, __ATOMIC_SEQ_CST);
-
-    pthread_join(ZTIO(thread), NULL);
-}
-
 #endif	/* ZEND_STAT_IO */

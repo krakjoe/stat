@@ -1,6 +1,6 @@
 /*
   +----------------------------------------------------------------------+
-  | stat                                                                |
+  | stat                                                                 |
   +----------------------------------------------------------------------+
   | Copyright (c) Joe Watkins 2019                                       |
   +----------------------------------------------------------------------+
@@ -16,19 +16,11 @@
   +----------------------------------------------------------------------+
  */
 
-#ifndef ZEND_STAT_INI_H
-# define ZEND_STAT_INI_H
+#ifndef ZEND_STAT_STREAM_H
+# define ZEND_STAT_STREAM_H
 
-#include "zend_ini.h"
+#include "zend_stat_io.h"
 
-extern zend_long    zend_stat_ini_samples;
-extern zend_long    zend_stat_ini_interval;
-extern zend_bool    zend_stat_ini_arginfo;
-extern zend_long    zend_stat_ini_strings;
-extern char*        zend_stat_ini_stream;
-extern int          zend_stat_ini_dump;
-
-void zend_stat_ini_startup();
-void zend_stat_ini_shutdown();
-
-#endif	/* ZEND_STAT_INI_H */
+zend_bool zend_stat_stream_startup(zend_stat_io_t *io, zend_stat_buffer_t *buffer, char *stream);
+void      zend_stat_stream_shutdown(zend_stat_io_t *io);
+#endif

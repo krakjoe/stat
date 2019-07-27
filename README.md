@@ -38,12 +38,12 @@ The following configuration directives are available:
 |stat.interval   |`1000`                     | Set interval for sampling in microseconds                      |
 |stat.arginfo    |`Off`                      | Enable collection of argument info                             |
 |stat.strings    |`32M`                      | Set size of string buffer (supports suffixes, be generous)     |
-|stat.socket     |`zend.stat.socket`         | Set path to socket, setting to 0 disables socket               |
+|stat.stream     |`zend.stat.stream`         | Set stream socket, setting to 0 disables stream                |
 |stat.dump       |`0`                        | Set to a file descriptor for dump on shutdown                  |
 
 ## To communicate with stat:
 
-Stat can be configured to communicate via a unix or TCP socket, the following are valid examples:
+Stat can be configured to stream over a unix or TCP socket, the following are valid examples:
 
   - `unix://zend.stat.socket`
   - `unix:///var/run/zend.stat.socket`

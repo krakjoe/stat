@@ -22,8 +22,35 @@
 #include "zend_stat_buffer.h"
 #include "zend_stat_strings.h"
 
-zend_bool zend_stat_io_startup(char *uri, zend_stat_buffer_t *buffer);
-void zend_stat_io_shutdown(void);
+#include <pthread.h>
+
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <netinet/in.h>
+#include <netdb.h>
+
+typedef enum {
+    ZEND_STAT_IO_UNKNOWN,
+    ZEND_STAT_IO_UNIX,
+    ZEND_STAT_IO_TCP,
+    ZEND_STAT_IO_FAILED
+} zend_stat_io_type_t;
+
+typedef struct _zend_stat_io_t {
+    zend_stat_io_type_t     type;
+    int                     descriptor;
+    struct sockaddr         *address;
+    zend_bool               closed;
+    pthread_t               thread;
+    zend_stat_buffer_t      *buffer;
+} zend_stat_io_t;
+
+#define ZEND_STAT_IO_SIZE(t) \
+    ((t == ZEND_STAT_IO_UNIX) ? \
+        sizeof(struct sockaddr_un) : \
+        sizeof(struct sockaddr_in))
+
+zend_stat_io_type_t zend_stat_io_socket(char *uri, struct sockaddr **sa, int *so);
 
 zend_bool zend_stat_io_write(int fd, char *message, size_t length);
 zend_bool zend_stat_io_write_string(int fd, zend_stat_string_t *string);

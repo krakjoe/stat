@@ -1,6 +1,6 @@
 /*
   +----------------------------------------------------------------------+
-  | stat                                                                |
+  | stat                                                                 |
   +----------------------------------------------------------------------+
   | Copyright (c) Joe Watkins 2019                                       |
   +----------------------------------------------------------------------+
@@ -35,10 +35,12 @@
 #include "zend_stat_buffer.h"
 #include "zend_stat_ini.h"
 #include "zend_stat_io.h"
+#include "zend_stat_stream.h"
 #include "zend_stat_sampler.h"
 #include "zend_stat_strings.h"
 
 static zend_stat_buffer_t*     zend_stat_buffer = NULL;
+static zend_stat_io_t          zend_stat_stream;
 static double                  zend_stat_started = 0;
 ZEND_TLS zend_stat_sampler_t   zend_stat_sampler;
 
@@ -75,9 +77,9 @@ ZEND_STAT_EXTENSION_API zend_extension zend_extension_entry = {
 static int zend_stat_startup(zend_extension *ze) {
     zend_stat_ini_startup();
 
-    if (!zend_stat_ini_socket && !zend_stat_ini_dump) {
+    if (!zend_stat_ini_stream && !zend_stat_ini_dump) {
         zend_error(E_WARNING,
-            "[STAT] socket and dump are both disabled by configuration, "
+            "[STAT] stream and dump are both disabled by configuration, "
             "may be misconfigured");
         zend_stat_ini_shutdown();
 
@@ -97,7 +99,7 @@ static int zend_stat_startup(zend_extension *ze) {
         return SUCCESS;
     }
 
-    if (!zend_stat_io_startup(zend_stat_ini_socket, zend_stat_buffer)) {
+    if (!zend_stat_stream_startup(&zend_stat_stream, zend_stat_buffer, zend_stat_ini_stream)) {
         zend_stat_buffer_shutdown(zend_stat_buffer);
         zend_stat_strings_shutdown();
         zend_stat_ini_shutdown();
@@ -122,7 +124,7 @@ static void zend_stat_shutdown(zend_extension *ze) {
             zend_stat_buffer, zend_stat_ini_dump);
     }
 
-    zend_stat_io_shutdown();
+    zend_stat_stream_shutdown(&zend_stat_stream);
     zend_stat_buffer_shutdown(zend_stat_buffer);
     zend_stat_strings_shutdown();
     zend_stat_ini_shutdown();
