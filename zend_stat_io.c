@@ -332,6 +332,7 @@ void zend_stat_io_shutdown(void)
         pefree(un, 1);
     }
 
+    shutdown(ZTIO(descriptor), SHUT_RD);
     close(ZTIO(descriptor));
 
     __atomic_store_n(
