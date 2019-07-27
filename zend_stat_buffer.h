@@ -30,6 +30,7 @@ void zend_stat_buffer_deactivate(zend_stat_buffer_t *buffer, pid_t pid);
 #include "zend_stat_sampler.h"
 
 double     zend_stat_buffer_started(zend_stat_buffer_t *buffer);
-void zend_stat_buffer_insert(zend_stat_buffer_t *buffer, zend_stat_sample_t *sample);
-void zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd);
+void       zend_stat_buffer_insert(zend_stat_buffer_t *buffer, zend_stat_sample_t *sample);
+zend_bool  zend_stat_buffer_empty(zend_stat_buffer_t *buffer);
+zend_bool  zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd);
 #endif	/* ZEND_STAT_BUFFER_H */

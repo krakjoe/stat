@@ -118,7 +118,8 @@ static void zend_stat_shutdown(zend_extension *ze) {
     }
 
     if (zend_stat_ini_dump > 0) {
-        zend_stat_buffer_dump(zend_stat_buffer, zend_stat_ini_dump);
+        zend_stat_buffer_dump(
+            zend_stat_buffer, zend_stat_ini_dump);
     }
 
     zend_stat_io_shutdown();
@@ -155,7 +156,7 @@ double zend_stat_time(void) {
     if (clock_gettime(CLOCK_MONOTONIC, &ts) != SUCCESS) {
         return (double) -1;
     }
-    
+
     return ((double) ts.tv_sec + ts.tv_nsec / 1000000000.00) - zend_stat_started;
 }
 

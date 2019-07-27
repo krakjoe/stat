@@ -38,9 +38,10 @@ typedef enum {
 } zend_stat_io_type_t;
 
 static struct {
-    zend_stat_io_type_t    type;
+    zend_stat_io_type_t     type;
     int                     descriptor;
     struct sockaddr         *address;
+    zend_bool               closed;
     pthread_t               thread;
     zend_stat_buffer_t      *buffer;
 } zend_stat_io;
@@ -73,9 +74,16 @@ static void* zend_stat_io_routine(void *arg) {
             break;
         }
 
-        zend_stat_buffer_dump(ZTIO(buffer), client);
+        while (zend_stat_buffer_dump(ZTIO(buffer), client)) {
+            if (__atomic_load_n(&ZTIO(closed), __ATOMIC_SEQ_CST)) {
+                if (zend_stat_buffer_empty(ZTIO(buffer))) {
+                    break;
+                }
+            }
+        }
+
         close(client);
-    } while (1);
+    } while (!__atomic_load_n(&ZTIO(closed), __ATOMIC_SEQ_CST));
 
     pefree(address, 1);
 
@@ -326,7 +334,8 @@ void zend_stat_io_shutdown(void)
 
     close(ZTIO(descriptor));
 
-    pthread_cancel(ZTIO(thread));
+    __atomic_store_n(
+        &ZTIO(closed), 1, __ATOMIC_SEQ_CST);
 
     pthread_join(ZTIO(thread), NULL);
 }
