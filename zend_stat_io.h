@@ -19,6 +19,7 @@
 #ifndef ZEND_STAT_IO_H
 # define ZEND_STAT_IO_H
 
+#include "zend_stat_buffer.h"
 #include "zend_stat_strings.h"
 
 zend_bool zend_stat_io_startup(char *uri, zend_stat_buffer_t *buffer);
