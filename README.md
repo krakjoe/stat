@@ -52,7 +52,7 @@ Stat can be configured to communicate via a unix or TCP socket, the following ar
 
 *Note: If the scheme is omitted, the scheme is assumed to be unix*
 
-Stat will send each sample as a json encoded packet, one sample per line with the following format, prettified for readability::
+Upon connection, stat will stream the ring buffer with each sample on a new line, encoded as json with the following prettified format:
 
     {
         "pid": int,
@@ -73,6 +73,8 @@ Stat will send each sample as a json encoded packet, one sample per line with th
         },
         "arginfo": ["type(meta)" ...]
     }
+
+The nature of a ring buffer means that the samples may not be in the correct temporal sequence (as contained in `elapsed`), the receiving software must be prepared to deal with that.
 
 Notes:
 
@@ -111,7 +113,7 @@ Fetching argument information for a frame is disabled by default because this is
 
 On request shutdown (RSHUTDOWN) the current sampler for the current request is deactivated, this doesn't effect any of the samples it collected.
 
-On shutdown (MSHUTDOWN) the socket is closed, the buffer may be dumped to a file descriptor depending on `stat.dump` before being unmapped, finally strings are unmapped.
+On shutdown (MSHUTDOWN) the socket is shutdown, any clients connected will recieve the rest of the buffer (beware this may cause a delay in shutting down the process) before the buffer and strings are unmapped.
 
 ### Notes
 
