@@ -36,21 +36,19 @@ typedef enum {
     ZEND_STAT_IO_FAILED
 } zend_stat_io_type_t;
 
-typedef struct _zend_stat_io_t {
+typedef struct _zend_stat_io_t zend_stat_io_t;
+
+typedef void (zend_stat_io_routine_t) (zend_stat_io_t *io, int client);
+
+struct _zend_stat_io_t {
     zend_stat_io_type_t     type;
     int                     descriptor;
     struct sockaddr         *address;
     zend_bool               closed;
     pthread_t               thread;
     zend_stat_buffer_t      *buffer;
-} zend_stat_io_t;
-
-#define ZEND_STAT_IO_SIZE(t) \
-    ((t == ZEND_STAT_IO_UNIX) ? \
-        sizeof(struct sockaddr_un) : \
-        sizeof(struct sockaddr_in))
-
-zend_stat_io_type_t zend_stat_io_socket(char *uri, struct sockaddr **sa, int *so);
+    zend_stat_io_routine_t  *routine;
+};
 
 zend_bool zend_stat_io_write(int fd, char *message, size_t length);
 zend_bool zend_stat_io_write_string(int fd, zend_stat_string_t *string);
@@ -63,4 +61,7 @@ zend_bool zend_stat_io_write_double(int fd, double num);
 #define zend_stat_io_write_double_ex(s, d, a) if (!zend_stat_io_write_double(s, d)) a
 #define zend_stat_io_write_literal_ex(s, v, a) if (!zend_stat_io_write(s, v, sizeof(v)-1)) a
 
+zend_bool zend_stat_io_startup(zend_stat_io_t *io, char *uri, zend_stat_buffer_t *buffer, zend_stat_io_routine_t *routine);
+zend_bool zend_stat_io_closed(zend_stat_io_t *io);
+void zend_stat_io_shutdown(zend_stat_io_t *io);
 #endif	/* ZEND_STAT_IO_H */

@@ -23,7 +23,12 @@
 #include "zend_stat_buffer.h"
 #include "zend_stat_io.h"
 
-zend_stat_io_type_t zend_stat_io_socket(char *uri, struct sockaddr **sa, int *so) {
+#define ZEND_STAT_IO_SIZE(t) \
+    ((t == ZEND_STAT_IO_UNIX) ? \
+        sizeof(struct sockaddr_un) : \
+        sizeof(struct sockaddr_in))
+
+static zend_stat_io_type_t zend_stat_io_socket(char *uri, struct sockaddr **sa, int *so) {
     zend_stat_io_type_t type = ZEND_STAT_IO_UNKNOWN;
     char *buffer,
          *address =
@@ -83,8 +88,7 @@ zend_stat_io_type_t zend_stat_io_socket(char *uri, struct sockaddr **sa, int *so
                 *so = try;
                 *sa = (struct sockaddr*) un;
 
-                free(buffer);
-                return type;
+                goto _zend_stat_io_socket_listen;
             }
 
             zend_error(E_WARNING,
@@ -111,7 +115,7 @@ zend_stat_io_type_t zend_stat_io_socket(char *uri, struct sockaddr **sa, int *so
 
             if (gai_errno != SUCCESS) {
                 zend_error(E_WARNING,
-                    "[STAT] %s - failed to get address for %s",
+                    "[STAT] %s - cannot get address for %s",
                     gai_strerror(gai_errno),
                     uri);
                 type = ZEND_STAT_IO_FAILED;
@@ -142,8 +146,8 @@ zend_stat_io_type_t zend_stat_io_socket(char *uri, struct sockaddr **sa, int *so
                     *so = try;
 
                     freeaddrinfo(ai);
-                    free(buffer);
-                    return type;
+
+                    goto _zend_stat_io_socket_listen;
                 }
 
                 close(try);
@@ -159,9 +163,20 @@ zend_stat_io_type_t zend_stat_io_socket(char *uri, struct sockaddr **sa, int *so
 
         case ZEND_STAT_IO_UNKNOWN:
             zend_error(E_WARNING,
-                "[STAT] Failed to setup socket, %s is a malformed uri",
+                "[STAT] Cannot setup socket, %s is a malformed uri",
                 uri);
         break;
+    }
+
+    free(buffer);
+    return type;
+
+_zend_stat_io_socket_listen:
+    if (listen(*so, 256) != SUCCESS) {
+        zend_error(E_WARNING,
+            "[STAT] %s - cannot listen on %s, ",
+            strerror(errno), uri);
+        type = ZEND_STAT_IO_FAILED;
     }
 
     free(buffer);
@@ -209,5 +224,103 @@ zend_bool zend_stat_io_write_double(int fd, double num) {
         dblbuf, "%.10f", num);
 
     return zend_stat_io_write(fd, dblbuf, strlen(dblbuf));
+}
+
+static void* zend_stat_io_routine(zend_stat_io_t *io) {
+    struct sockaddr* address =
+        (struct sockaddr*)
+            pemalloc(ZEND_STAT_IO_SIZE(io->type), 1);
+    socklen_t length = ZEND_STAT_IO_SIZE(io->type);
+
+    do {
+        int client;
+
+        memset(
+            address, 0,
+            ZEND_STAT_IO_SIZE(io->type));
+
+        client = accept(io->descriptor, address, &length);
+
+        if (UNEXPECTED(FAILURE == client)) {
+            if (ECONNABORTED == errno ||
+                EINTR == errno) {
+                continue;
+            }
+
+            break;
+        }
+
+        io->routine(io, client);
+
+        close(client);
+    } while (!zend_stat_io_closed(io));
+
+    pefree(address, 1);
+
+    pthread_exit(NULL);
+}
+
+zend_bool zend_stat_io_startup(zend_stat_io_t *io, char *uri, zend_stat_buffer_t *buffer, zend_stat_io_routine_t *routine) {
+    if (!uri) {
+        return 1;
+    }
+
+    memset(io, 0, sizeof(zend_stat_io_t));
+
+    switch (io->type = zend_stat_io_socket(uri, &io->address, &io->descriptor)) {
+        case ZEND_STAT_IO_UNKNOWN:
+        case ZEND_STAT_IO_FAILED:
+            return 0;
+
+        case ZEND_STAT_IO_UNIX:
+        case ZEND_STAT_IO_TCP:
+            /* all good */
+        break;
+    }
+
+    io->buffer = buffer;
+    io->routine = routine;
+
+    if (pthread_create(&io->thread,
+            NULL,
+            (void*)(void*)
+                zend_stat_io_routine,
+            (void*) io) != SUCCESS) {
+        zend_error(E_WARNING,
+            "[STAT] %s - cannot create thread for io on %s",
+            strerror(errno), uri);
+        zend_stat_io_shutdown(io);
+        return 0;
+    }
+
+    return 1;
+}
+
+zend_bool zend_stat_io_closed(zend_stat_io_t *io) {
+    return __atomic_load_n(&io->closed, __ATOMIC_SEQ_CST);
+}
+
+void zend_stat_io_shutdown(zend_stat_io_t *io) {
+    if (!io->descriptor) {
+        return;
+    }
+
+    if (io->type == ZEND_STAT_IO_UNIX) {
+        struct sockaddr_un *un =
+            (struct sockaddr_un*) io->address;
+
+        unlink(un->sun_path);
+        pefree(un, 1);
+    }
+
+    shutdown(io->descriptor, SHUT_RD);
+    close(io->descriptor);
+
+    __atomic_store_n(
+        &io->closed, 1, __ATOMIC_SEQ_CST);
+
+    pthread_join(io->thread, NULL);
+
+    memset(io, 0, sizeof(zend_stat_io_t));
 }
 #endif	/* ZEND_STAT_IO */
