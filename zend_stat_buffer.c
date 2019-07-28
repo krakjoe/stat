@@ -24,18 +24,26 @@
 #include "zend_stat_io.h"
 
 struct _zend_stat_buffer_t {
+    struct {
+        zend_ulong interval;
+        zend_bool  arginfo;
+    } options;
+
     zend_stat_sample_t *samples;
     zend_stat_sample_t *position;
     zend_stat_sample_t *it;
     zend_stat_sample_t *end;
     zend_ulong max;
     zend_ulong used;
-    zend_ulong size;
 };
 
-zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples) {
-    size_t size = sizeof(zend_stat_buffer_t) +
+static size_t zend_always_inline zend_stat_buffer_size(zend_long samples) {
+    return sizeof(zend_stat_buffer_t) +
                   (samples * sizeof(zend_stat_sample_t));
+}
+
+zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples, zend_long interval, zend_bool arginfo) {
+    size_t size = zend_stat_buffer_size(samples);
     zend_stat_buffer_t *buffer = zend_stat_map(size);
 
     if (!buffer) {
@@ -53,7 +61,9 @@ zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples) {
     buffer->max       = samples;
     buffer->used      = 0;
     buffer->end       = buffer->position + buffer->max;
-    buffer->size      = size;
+
+    buffer->options.interval  = interval * 1000;
+    buffer->options.arginfo   = arginfo;
 
     memset(buffer->samples, 0, sizeof(zend_stat_sample_t) * buffer->max);
 
@@ -163,8 +173,24 @@ zend_bool zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
     return 1;
 }
 
+void zend_stat_buffer_interval_set(zend_stat_buffer_t *buffer, zend_long interval) {
+    __atomic_store_n(&buffer->options.interval, interval * 1000, __ATOMIC_SEQ_CST);
+}
+
+zend_long zend_stat_buffer_interval_get(zend_stat_buffer_t *buffer) {
+    return __atomic_load_n(&buffer->options.interval, __ATOMIC_SEQ_CST);
+}
+
+zend_bool zend_stat_buffer_arginfo_get(zend_stat_buffer_t *buffer) {
+    return __atomic_load_n(&buffer->options.arginfo, __ATOMIC_SEQ_CST);
+}
+
+void zend_stat_buffer_arginfo_set(zend_stat_buffer_t *buffer, zend_bool arginfo) {
+    __atomic_store_n(&buffer->options.arginfo, arginfo, __ATOMIC_SEQ_CST);
+}
+
 void zend_stat_buffer_shutdown(zend_stat_buffer_t *buffer) {
-    zend_stat_unmap(buffer, buffer->size);
+    zend_stat_unmap(buffer, zend_stat_buffer_size(buffer->max));
 }
 
 #endif	/* ZEND_STAT_BUFFER */

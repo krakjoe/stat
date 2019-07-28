@@ -2,7 +2,7 @@
 
 Conventional PHP profilers use various Zend API's to overload the engine in order to build and usually dump (or serve) a profile for one single process. This gives us a problem when we want to look at a whole application in profile - we can't enable the profiler for every process in a pool in a production (or even staging) environment. Conventional profilers undertake their work in the same thread as is supposed to be executing your script, severely interfering with the performance characteristics of the code they are meant to be providing a profile for.
 
-Stat is an unconventional provider of profile information: Stat uses an atomic ring buffer to provide realtime profile information about a set of PHP processes over a TCP or unix socket.
+Stat is an unconventional provider of profile information: Stat uses an atomic ring buffer to provide realtime profile information for a set of PHP processes over a TCP or unix socket.
 
 # Requirements
 
@@ -39,11 +39,12 @@ The following configuration directives are available:
 |stat.arginfo    |`Off`                      | Enable collection of argument info                             |
 |stat.strings    |`32M`                      | Set size of string buffer (supports suffixes, be generous)     |
 |stat.stream     |`zend.stat.stream`         | Set stream socket, setting to 0 disables stream                |
+|stat.control    |`zend.stat.control`        | Set control socket, setting to 0 disables control              |
 |stat.dump       |`0`                        | Set to a file descriptor for dump on shutdown                  |
 
-## To communicate with stat:
+## To retrieve samples from Stat:
 
-Stat can be configured to stream over a unix or TCP socket, the following are valid examples:
+Stat can stream over a unix or TCP socket, the following are valid examples:
 
   - `unix://zend.stat.socket`
   - `unix:///var/run/zend.stat.socket`
@@ -84,6 +85,30 @@ Notes:
   - the absense of `line` in `location` signifies that a line number is not available for the current instruction
   - the `offset` in `location` refers to the offset of `opcode` from entry to `symbol`
 
+## To control Stat:
+
+The stream of samples that Stat provides is uninterruptable; Stat is controlled by a separate unix or TCP socket.
+
+This control protocol is a work in progress, and this section is intended for the authors of integrating software.
+
+A control has the following structure:
+
+```
+struct {
+    int64_t control;
+    int64_t param;
+};
+```
+
+The following controls are defined:
+
+| Name           | Control                   | Information                                                    |
+|:---------------|:--------------------------|:---------------------------------------------------------------|
+| interval       | `1<<1`                    | Sets the interval for sampling                                 |
+| arginfo        | `1<<2`                    | Enables/disables the collection of arginfo                     |
+
+*Note: the specifier 'q' should be used for pack (signed long long in machine byte order)*
+
 ### Startup
 
 On startup (MINIT) Stat maps:
@@ -111,7 +136,7 @@ Fetching argument information for a frame is disabled by default because this is
 
 ### Shutdown
 
-On request shutdown (RSHUTDOWN) the current sampler for the current request is deactivated, this doesn't effect any of the samples it collected.
+On request shutdown (RSHUTDOWN) the sampler for the current request is deactivated, this doesn't effect any of the samples it collected.
 
 On shutdown (MSHUTDOWN) the socket is shutdown, any clients connected will recieve the rest of the buffer (beware this may cause a delay in shutting down the process) before the buffer and strings are unmapped.
 

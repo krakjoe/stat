@@ -33,14 +33,16 @@
 
 #include "zend_stat.h"
 #include "zend_stat_buffer.h"
+#include "zend_stat_control.h"
 #include "zend_stat_ini.h"
 #include "zend_stat_io.h"
-#include "zend_stat_stream.h"
 #include "zend_stat_sampler.h"
+#include "zend_stat_stream.h"
 #include "zend_stat_strings.h"
 
 static zend_stat_buffer_t*     zend_stat_buffer = NULL;
 static zend_stat_io_t          zend_stat_stream;
+static zend_stat_io_t          zend_stat_control;
 static double                  zend_stat_started = 0;
 ZEND_TLS zend_stat_sampler_t   zend_stat_sampler;
 
@@ -92,14 +94,32 @@ static int zend_stat_startup(zend_extension *ze) {
         return SUCCESS;
     }
 
-    if (!(zend_stat_buffer = zend_stat_buffer_startup(zend_stat_ini_samples))) {
+    if (!(zend_stat_buffer = zend_stat_buffer_startup(
+            zend_stat_ini_samples,
+            zend_stat_ini_interval,
+            zend_stat_ini_arginfo))) {
         zend_stat_strings_shutdown();
         zend_stat_ini_shutdown();
 
         return SUCCESS;
     }
 
-    if (!zend_stat_stream_startup(&zend_stat_stream, zend_stat_buffer, zend_stat_ini_stream)) {
+    if (!zend_stat_control_startup(
+            &zend_stat_control,
+            zend_stat_buffer,
+            zend_stat_ini_control)) {
+        zend_stat_buffer_shutdown(zend_stat_buffer);
+        zend_stat_strings_shutdown();
+        zend_stat_ini_shutdown();
+
+        return SUCCESS;
+    }
+
+    if (!zend_stat_stream_startup(
+            &zend_stat_stream,
+            zend_stat_buffer,
+            zend_stat_ini_stream)) {
+        zend_stat_control_shutdown(&zend_stat_control);
         zend_stat_buffer_shutdown(zend_stat_buffer);
         zend_stat_strings_shutdown();
         zend_stat_ini_shutdown();
@@ -124,6 +144,7 @@ static void zend_stat_shutdown(zend_extension *ze) {
             zend_stat_buffer, zend_stat_ini_dump);
     }
 
+    zend_stat_control_shutdown(&zend_stat_control);
     zend_stat_stream_shutdown(&zend_stat_stream);
     zend_stat_buffer_shutdown(zend_stat_buffer);
     zend_stat_strings_shutdown();
@@ -142,9 +163,9 @@ static void zend_stat_activate(void) {
     }
 
 #if defined(ZTS)
-    zend_stat_sampler_activate(&zend_stat_sampler, syscall(SYS_gettid), zend_stat_ini_interval, zend_stat_ini_arginfo, zend_stat_buffer);
+    zend_stat_sampler_activate(&zend_stat_sampler, syscall(SYS_gettid), zend_stat_buffer);
 #else
-    zend_stat_sampler_activate(&zend_stat_sampler, getpid(), zend_stat_ini_interval, zend_stat_ini_arginfo, zend_stat_buffer);
+    zend_stat_sampler_activate(&zend_stat_sampler, getpid(), zend_stat_buffer);
 #endif
 }
 

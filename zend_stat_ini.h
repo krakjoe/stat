@@ -26,6 +26,7 @@ extern zend_long    zend_stat_ini_interval;
 extern zend_bool    zend_stat_ini_arginfo;
 extern zend_long    zend_stat_ini_strings;
 extern char*        zend_stat_ini_stream;
+extern char*        zend_stat_ini_control;
 extern int          zend_stat_ini_dump;
 
 void zend_stat_ini_startup();

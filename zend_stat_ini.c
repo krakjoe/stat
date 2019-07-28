@@ -27,6 +27,7 @@ zend_long    zend_stat_ini_interval  = -1;
 zend_bool    zend_stat_ini_arginfo   = 0;
 zend_long    zend_stat_ini_strings   = -1;
 char*        zend_stat_ini_stream    = NULL;
+char*        zend_stat_ini_control   = NULL;
 int          zend_stat_ini_dump      = -1;
 
 static ZEND_INI_MH(zend_stat_ini_update_samples)
@@ -98,6 +99,25 @@ static ZEND_INI_MH(zend_stat_ini_update_stream)
     return SUCCESS;
 }
 
+static ZEND_INI_MH(zend_stat_ini_update_control)
+{
+    int skip = FAILURE;
+
+    if (UNEXPECTED(NULL != zend_stat_ini_control)) {
+        return FAILURE;
+    }
+
+    if (sscanf(ZSTR_VAL(new_value), "%d", &skip) == 1) {
+        if (SUCCESS == skip) {
+            return SUCCESS;
+        }
+    }
+
+    zend_stat_ini_control = pestrndup(ZSTR_VAL(new_value), ZSTR_LEN(new_value), 1);
+
+    return SUCCESS;
+}
+
 static ZEND_INI_MH(zend_stat_ini_update_dump)
 {
     if (UNEXPECTED(-1 != zend_stat_ini_dump)) {
@@ -115,6 +135,7 @@ ZEND_INI_BEGIN()
     ZEND_INI_ENTRY("stat.arginfo",   "Off",               ZEND_INI_SYSTEM, zend_stat_ini_update_arginfo)
     ZEND_INI_ENTRY("stat.strings",   "32M",               ZEND_INI_SYSTEM, zend_stat_ini_update_strings)
     ZEND_INI_ENTRY("stat.stream",    "zend.stat.stream",  ZEND_INI_SYSTEM, zend_stat_ini_update_stream)
+    ZEND_INI_ENTRY("stat.control",   "zend.stat.control", ZEND_INI_SYSTEM, zend_stat_ini_update_control)
     ZEND_INI_ENTRY("stat.dump",      "0",                 ZEND_INI_SYSTEM, zend_stat_ini_update_dump)
 ZEND_INI_END()
 

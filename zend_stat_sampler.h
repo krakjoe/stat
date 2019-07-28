@@ -28,7 +28,6 @@ typedef struct _zend_stat_sampler_t {
     struct zend_stat_sampler_timer_t {
         pthread_mutex_t mutex;
         pthread_cond_t  cond;
-        zend_long       interval;
         zend_bool       closed;
         zend_bool       active;
         pthread_t       thread;
@@ -45,6 +44,6 @@ typedef struct _zend_stat_sampler_t {
     zend_execute_data  *fp;
 } zend_stat_sampler_t;
 
-void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_long interval, zend_bool arginfo, zend_stat_buffer_t *buffer);
+void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_stat_buffer_t *buffer);
 void zend_stat_sampler_deactivate(zend_stat_sampler_t *sampler);
 #endif	/* ZEND_STAT_SAMPLER_H */

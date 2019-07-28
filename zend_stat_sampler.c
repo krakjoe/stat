@@ -208,7 +208,7 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
         goto _zend_stat_sample_return;
     }
 
-    if (UNEXPECTED(sampler->arginfo)) {
+    if (UNEXPECTED(zend_stat_buffer_arginfo_get(sampler->buffer))) {
         sample.arginfo.length = MIN(frame.This.u2.num_args, ZEND_STAT_SAMPLE_MAX_ARGINFO);
 
         if (EXPECTED(sample.arginfo.length > 0)) {
@@ -330,7 +330,7 @@ static zend_never_inline void* zend_stat_sampler(zend_stat_sampler_t *sampler) {
         clk.tv_sec +=
             zend_stat_sampler_clock(
                 clk.tv_nsec +
-                    timer->interval,
+                    zend_stat_buffer_interval_get(sampler->buffer),
         &clk.tv_nsec);
 
         switch (pthread_cond_timedwait(&timer->cond, &timer->mutex, &clk)) {
@@ -362,11 +362,10 @@ _zend_stat_sampler_exit:
     pthread_exit(NULL);
 } /* }}} */
 
-void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_long interval, zend_bool arginfo, zend_stat_buffer_t *buffer) { /* {{{ */
+void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_stat_buffer_t *buffer) { /* {{{ */
     memset(sampler, 0, sizeof(zend_stat_sampler_t));
 
     sampler->pid = pid;
-    sampler->arginfo = arginfo;
     sampler->buffer = buffer;
     sampler->heap =
         (zend_heap_header_t*) zend_mm_get_heap();
@@ -376,8 +375,6 @@ void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_lo
                 zend_executor_globals,
                 ZEND_EXECUTOR_ADDRESS,
                 current_execute_data);
-
-    sampler->timer.interval = interval * 1000;
 
     pthread_mutex_init(&sampler->timer.mutex, NULL);
     pthread_cond_init(&sampler->timer.cond, NULL);

@@ -226,7 +226,7 @@ zend_bool zend_stat_io_write_double(int fd, double num) {
     return zend_stat_io_write(fd, dblbuf, strlen(dblbuf));
 }
 
-static void* zend_stat_io_routine(zend_stat_io_t *io) {
+static void* zend_stat_io_thread(zend_stat_io_t *io) {
     struct sockaddr* address =
         (struct sockaddr*)
             pemalloc(ZEND_STAT_IO_SIZE(io->type), 1);
@@ -261,11 +261,11 @@ static void* zend_stat_io_routine(zend_stat_io_t *io) {
 }
 
 zend_bool zend_stat_io_startup(zend_stat_io_t *io, char *uri, zend_stat_buffer_t *buffer, zend_stat_io_routine_t *routine) {
+    memset(io, 0, sizeof(zend_stat_io_t));
+
     if (!uri) {
         return 1;
     }
-
-    memset(io, 0, sizeof(zend_stat_io_t));
 
     switch (io->type = zend_stat_io_socket(uri, &io->address, &io->descriptor)) {
         case ZEND_STAT_IO_UNKNOWN:
@@ -284,7 +284,7 @@ zend_bool zend_stat_io_startup(zend_stat_io_t *io, char *uri, zend_stat_buffer_t
     if (pthread_create(&io->thread,
             NULL,
             (void*)(void*)
-                zend_stat_io_routine,
+                zend_stat_io_thread,
             (void*) io) != SUCCESS) {
         zend_error(E_WARNING,
             "[STAT] %s - cannot create thread for io on %s",
@@ -320,7 +320,5 @@ void zend_stat_io_shutdown(zend_stat_io_t *io) {
         &io->closed, 1, __ATOMIC_SEQ_CST);
 
     pthread_join(io->thread, NULL);
-
-    memset(io, 0, sizeof(zend_stat_io_t));
 }
 #endif	/* ZEND_STAT_IO */
