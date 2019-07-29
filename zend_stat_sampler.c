@@ -306,9 +306,11 @@ static zend_always_inline uint32_t zend_stat_sampler_clock(uint64_t cumulative, 
     return result;
 } /* }}} */
 
+#ifdef ZEND_ACC_IMMUTABLE
 static void zend_stat_sampler_cache_symbol_free(zval *zv) { /* {{{ */
     free(Z_PTR_P(zv));
 } /* }}} */
+#endif
 
 static zend_never_inline void* zend_stat_sampler(zend_stat_sampler_t *sampler) { /* {{{ */
     struct zend_stat_sampler_timer_t
