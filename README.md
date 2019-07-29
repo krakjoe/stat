@@ -35,7 +35,7 @@ The following configuration directives are available:
 | Name           | Default                   | Purpose                                                        |
 |:---------------|:--------------------------|:---------------------------------------------------------------|
 |stat.samples    |`10000`                    | Set to the maximum number of samples in the buffer             |
-|stat.interval   |`1000`                     | Set interval for sampling in microseconds                      |
+|stat.interval   |`100`                      | Set interval for sampling in microseconds, minimum 10ms        |
 |stat.arginfo    |`Off`                      | Enable collection of argument info                             |
 |stat.strings    |`32M`                      | Set size of string buffer (supports suffixes, be generous)     |
 |stat.stream     |`zend.stat.stream`         | Set stream socket, setting to 0 disables stream                |

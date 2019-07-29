@@ -60,4 +60,6 @@ static zend_always_inline void zend_stat_unmap(void *address, zend_long size) {
 ZEND_TSRMLS_CACHE_EXTERN()
 # endif
 
+#define ZEND_STAT_INTERVAL_MIN 10
+
 #endif	/* ZEND_STAT_H */
