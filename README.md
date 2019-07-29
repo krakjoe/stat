@@ -126,7 +126,7 @@ On request startup (RINIT) stat creates a sampler for the current request.
 
 Rather than using Zend hooks and interfering with the VM or runtime (function tables etc), Stats sampler is based on parallel uio. When the sampler is created on RINIT, it creates a timer thread which keeps time without repeated syscalls and periodically invokes the sampling routine at the configured interval.
 
-Because sampling occurs in parallel, it's possible to run PHP code at full speed while profiling: In (bench) testing, the overhead of stat running micro bench is statistically insignificant (1-2%, the same margin as without stat loaded) even with an interval of 10ms (100k samples per second).
+Because sampling occurs in parallel, it's possible to run PHP code at full speed while profiling: In (bench) testing, the overhead of stat running micro bench is statistically insignificant (1-2%, the same margin as without stat loaded) even with an interval of 10us (100k samples per second).
 
 Using uio in parallel, rather than trying to load from the memory of the target process directly protects stat from segfaults - the module globals which the executor uses at runtime are not manipulated atomically by zend, so that if the sampling thread tries to read a location in memory from the PHP process that changes while the read occurs, a segfault would result even if the sampler performs the read atomically - UIO will simply fail under conditions that would cause faults.
 
