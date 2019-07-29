@@ -23,12 +23,21 @@
 #include "zend_stat_io.h"
 #include "zend_stat_stream.h"
 
+static zend_always_inline void zend_stat_stream_yield(zend_stat_io_t *io) {
+    zend_long interval =
+        zend_stat_buffer_interval_get(io->buffer) / 1000;
+
+    usleep(ceil(interval / 2));
+}
+
 static void zend_stat_stream(zend_stat_io_t *io, int client) {
     while (zend_stat_buffer_dump(io->buffer, client)) {
-        if (zend_stat_io_closed(io)) {
-            if (zend_stat_buffer_empty(io->buffer)) {
+        if (zend_stat_buffer_empty(io->buffer)) {
+            if (zend_stat_io_closed(io)) {
                 return;
             }
+
+            zend_stat_stream_yield(io);
         }
     }
 }
