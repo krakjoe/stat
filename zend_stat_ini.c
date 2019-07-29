@@ -22,7 +22,7 @@
 #include "zend_stat.h"
 #include "zend_stat_ini.h"
 
-zend_long    zend_stat_ini_samples     = -1;
+zend_long    zend_stat_ini_samples   = -1;
 zend_long    zend_stat_ini_interval  = -1;
 zend_bool    zend_stat_ini_arginfo   = 0;
 zend_long    zend_stat_ini_strings   = -1;
@@ -54,6 +54,16 @@ static ZEND_INI_MH(zend_stat_ini_update_interval)
         zend_atol(
             ZSTR_VAL(new_value),
             ZSTR_LEN(new_value));
+
+    if (zend_stat_ini_interval < ZEND_STAT_INTERVAL_MIN) {
+        zend_error(
+            E_WARNING,
+            "[STAT] minimum interval is %d, "
+            "stat.interval set at " ZEND_LONG_FMT,
+            ZEND_STAT_INTERVAL_MIN,
+            zend_stat_ini_interval);
+        zend_stat_ini_interval = ZEND_STAT_INTERVAL_MIN;
+    }
 
     return SUCCESS;
 }
@@ -131,7 +141,7 @@ static ZEND_INI_MH(zend_stat_ini_update_dump)
 
 ZEND_INI_BEGIN()
     ZEND_INI_ENTRY("stat.samples",   "10000",             ZEND_INI_SYSTEM, zend_stat_ini_update_samples)
-    ZEND_INI_ENTRY("stat.interval",  "1000",              ZEND_INI_SYSTEM, zend_stat_ini_update_interval)
+    ZEND_INI_ENTRY("stat.interval",  "100",               ZEND_INI_SYSTEM, zend_stat_ini_update_interval)
     ZEND_INI_ENTRY("stat.arginfo",   "Off",               ZEND_INI_SYSTEM, zend_stat_ini_update_arginfo)
     ZEND_INI_ENTRY("stat.strings",   "32M",               ZEND_INI_SYSTEM, zend_stat_ini_update_strings)
     ZEND_INI_ENTRY("stat.stream",    "zend.stat.stream",  ZEND_INI_SYSTEM, zend_stat_ini_update_stream)
@@ -147,5 +157,6 @@ void zend_stat_ini_shutdown() {
     zend_unregister_ini_entries(-1);
 
     pefree(zend_stat_ini_stream, 1);
+    pefree(zend_stat_ini_control, 1);
 }
 #endif	/* ZEND_STAT_INI */
