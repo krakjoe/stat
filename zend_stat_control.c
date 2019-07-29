@@ -65,7 +65,7 @@ static void zend_stat_control(zend_stat_io_t *io, int client) {
 
         switch (zend_stat_control_read(client, &param)) {
             case ZEND_STAT_CONTROL_INTERVAL:
-                if (param > 0) {
+                if (param >= ZEND_STAT_INTERVAL_MIN) {
                     zend_stat_buffer_interval_set(io->buffer, param);
                 }
             break;
