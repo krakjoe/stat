@@ -54,13 +54,36 @@ static zend_always_inline zend_stat_arena_block_t* zend_stat_arena_find(zend_sta
     zend_stat_arena_block_t *block = arena->start;
 
     while (NULL != block) {
-        if ((block->size >= size) && (0 == block->used)) {
-            block->used = 1;
-
-            break;
+        if ((0 == block->used)) {
+            if ((block->size >= size)) {
+                block->used = 1;
+                break;
+            } else {
+                if (NULL != block->next) {
+                    if ((0 == block->next->used) &&
+                        ((block->size + block->next->size) >= size)) {
+                        block->size += block->next->size;
+                        block->next = block->next->next;
+                        block->used = 1;
+                        break;
+                    }
+                }
+            }
         }
 
         block = block->next;
+    }
+
+    if ((NULL != block) && (block->size > size)) {
+        if ((NULL == block->next) || (0 == block->next->used)) {
+            if ((NULL != block->next)) {
+                block->next =
+                    (zend_stat_arena_block_t*)
+                    (((char*) block->next) - (block->size - size));
+                block->next->size += block->size - size;
+            }
+            block->size = size;
+        }
     }
 
     return block;
@@ -142,6 +165,13 @@ void zend_stat_arena_free(zend_stat_arena_t *arena, void *mem) {
     zend_stat_arena_block_t *block = zend_stat_arena_block(mem);
 
     pthread_mutex_lock(&arena->mutex);
+
+    if (NULL != block->next) {
+        if (0 == block->next->used) {
+            block->size += block->next->size;
+            block->next = block->next->next;
+        }
+    }
 
     block->used = 0;
 
