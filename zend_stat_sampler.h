@@ -20,11 +20,12 @@
 # define ZEND_STAT_SAMPLER_H
 
 #include "zend_stat_sample.h"
+#include "zend_stat_request.h"
 
 typedef struct _zend_heap_header_t zend_heap_header_t;
 
 typedef struct _zend_stat_sampler_t {
-    pid_t               pid;
+    zend_stat_request_t *request;
     struct zend_stat_sampler_timer_t {
         pthread_mutex_t mutex;
         pthread_cond_t  cond;
@@ -44,6 +45,6 @@ typedef struct _zend_stat_sampler_t {
     zend_execute_data  *fp;
 } zend_stat_sampler_t;
 
-void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_stat_buffer_t *buffer);
+void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, zend_stat_request_t *request, zend_stat_buffer_t *buffer);
 void zend_stat_sampler_deactivate(zend_stat_sampler_t *sampler);
 #endif	/* ZEND_STAT_SAMPLER_H */

@@ -32,10 +32,12 @@
 #endif
 
 #include "zend_stat.h"
+#include "zend_stat_arena.h"
 #include "zend_stat_buffer.h"
 #include "zend_stat_control.h"
 #include "zend_stat_ini.h"
 #include "zend_stat_io.h"
+#include "zend_stat_request.h"
 #include "zend_stat_sampler.h"
 #include "zend_stat_stream.h"
 #include "zend_stat_strings.h"
@@ -45,6 +47,7 @@ static zend_stat_io_t          zend_stat_stream;
 static zend_stat_io_t          zend_stat_control;
 static double                  zend_stat_started = 0;
 ZEND_TLS zend_stat_sampler_t   zend_stat_sampler;
+ZEND_TLS zend_stat_request_t   zend_stat_request;
 
 static int  zend_stat_startup(zend_extension*);
 static void zend_stat_shutdown(zend_extension *);
@@ -162,15 +165,24 @@ static void zend_stat_activate(void) {
         return;
     }
 
+    if (!zend_stat_request_create(&zend_stat_request)) {
+        zend_error(E_WARNING,
+            "[STAT] Could not allocate request, "
+            "not activating sampler, may be low on memory");
+        return;
+    }
+
 #if defined(ZTS)
-    zend_stat_sampler_activate(&zend_stat_sampler, syscall(SYS_gettid), zend_stat_buffer);
+    zend_stat_sampler_activate(&zend_stat_sampler, &zend_stat_request, zend_stat_buffer);
 #else
-    zend_stat_sampler_activate(&zend_stat_sampler, getpid(), zend_stat_buffer);
+    zend_stat_sampler_activate(&zend_stat_sampler, &zend_stat_request, zend_stat_buffer);
 #endif
 }
 
 static void zend_stat_deactivate(void) {
     zend_stat_sampler_deactivate(&zend_stat_sampler);
+
+    zend_stat_request_release(&zend_stat_request);
 }
 
 double zend_stat_time(void) {

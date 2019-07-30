@@ -20,6 +20,7 @@
 # define ZEND_STAT_SAMPLE_H
 
 #include "zend_stat_strings.h"
+#include "zend_stat_request.h"
 
 #ifndef ZEND_STAT_SAMPLE_MAX_ARGINFO
 #   define ZEND_STAT_SAMPLE_MAX_ARGINFO 12
@@ -33,7 +34,7 @@ typedef struct _zend_stat_sample_state_t {
 typedef struct _zend_stat_sample_t {
     zend_stat_sample_state_t state;
     zend_uchar               type;
-    pid_t                    pid;
+    zend_stat_request_t      request;
     double                   elapsed;
     struct {
         size_t               used;
@@ -66,7 +67,7 @@ typedef struct _zend_stat_sample_t {
     (sizeof(zend_stat_sample_t) - XtOffsetOf(zend_stat_sample_t, type))
 
 const static zend_stat_sample_t zend_stat_sample_empty = {
-    {0, 0}, ZEND_STAT_SAMPLE_UNUSED, 0, 0, {0, 0}, {NULL, 0}, {NULL, NULL}
+    {0, 0}, ZEND_STAT_SAMPLE_UNUSED, {0}, 0, {0, 0}, {NULL, 0}, {NULL, NULL}
 };
 
 zend_bool zend_stat_sample_write(zend_stat_sample_t *sample, int fd);

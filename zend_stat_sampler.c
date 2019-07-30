@@ -57,7 +57,7 @@ static zend_always_inline int zend_stat_sampler_read(zend_stat_sampler_t *sample
     target.iov_base = (void*) remote;
     target.iov_len = size;
 
-    if (process_vm_readv(sampler->pid, &local, 1, &target, 1, 0) != size) {
+    if (process_vm_readv(sampler->request->pid, &local, 1, &target, 1, 0) != size) {
         return FAILURE;
     }
 
@@ -173,7 +173,9 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
     zend_op opline;
     zend_stat_sample_t sample = zend_stat_sample_empty;
 
-    sample.pid = sampler->pid;
+    zend_stat_request_copy(
+        &sample.request, sampler->request);
+
     sample.elapsed = zend_stat_time();
 
     /* This can never fail while the sampler is active */
@@ -364,10 +366,10 @@ _zend_stat_sampler_exit:
     pthread_exit(NULL);
 } /* }}} */
 
-void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, pid_t pid, zend_stat_buffer_t *buffer) { /* {{{ */
+void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, zend_stat_request_t *request, zend_stat_buffer_t *buffer) { /* {{{ */
     memset(sampler, 0, sizeof(zend_stat_sampler_t));
 
-    sampler->pid = pid;
+    sampler->request = request;
     sampler->buffer = buffer;
     sampler->heap =
         (zend_heap_header_t*) zend_mm_get_heap();

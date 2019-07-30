@@ -1,6 +1,6 @@
 /*
   +----------------------------------------------------------------------+
-  | stat                                                                |
+  | stat                                                                 |
   +----------------------------------------------------------------------+
   | Copyright (c) Joe Watkins 2019                                       |
   +----------------------------------------------------------------------+
@@ -16,30 +16,13 @@
   +----------------------------------------------------------------------+
  */
 
-#ifndef ZEND_STAT_STRINGS_H
-# define ZEND_STAT_STRINGS_H
+#ifndef ZEND_STAT_ARENA_H
+# define ZEND_STAT_ARENA_H
 
-typedef struct _zend_stat_string_t {
-    zend_bool  locked;
-    zend_ulong hash;
-    zend_long  length;
-    char      *value;
-    struct {
-        zend_uchar type;
-        uint32_t   refcount;
-    } u;
-} zend_stat_string_t;
+typedef struct _zend_stat_arena_t zend_stat_arena_t;
 
-#define ZEND_STAT_STRING_PERSISTENT 0
-#define ZEND_STAT_STRING_TEMPORARY  1
-
-zend_bool zend_stat_strings_startup(zend_long strings);
-zend_stat_string_t* zend_stat_string(zend_string *string);
-zend_stat_string_t *zend_stat_string_opcode(zend_uchar opcode);
-
-zend_stat_string_t* zend_stat_string_temporary(const char *value, size_t length);
-zend_stat_string_t* zend_stat_string_copy(zend_stat_string_t *string);
-void zend_stat_string_release(zend_stat_string_t *string);
-
-void zend_stat_strings_shutdown(void);
-#endif	/* ZEND_STAT_STRINGS_H */
+zend_stat_arena_t* zend_stat_arena_create(zend_long size);
+void* zend_stat_arena_alloc(zend_stat_arena_t *arena, zend_long size);
+void zend_stat_arena_free(zend_stat_arena_t *arena, void *mem);
+void zend_stat_arena_destroy(zend_stat_arena_t *arena);
+#endif

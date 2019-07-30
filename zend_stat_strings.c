@@ -20,6 +20,7 @@
 # define ZEND_STAT_STRINGS
 
 #include "zend_stat.h"
+#include "zend_stat_arena.h"
 #include "zend_stat_strings.h"
 
 typedef struct {
@@ -31,6 +32,7 @@ typedef struct {
         zend_long size;
         zend_long used;
     } buffer;
+    zend_stat_arena_t  *arena;
     zend_stat_string_t *strings;
 } zend_stat_strings_t;
 
@@ -89,7 +91,7 @@ _zend_stat_string_init_load:
     return string;
 }
 
-static zend_always_inline zend_stat_string_t* zend_stat_string_copy(zend_string *string) {
+static zend_always_inline zend_stat_string_t* zend_stat_string_persistent(zend_string *string) {
     zend_stat_string_t *copy;
     zend_ulong slot;
     zend_ulong offset;
@@ -216,7 +218,59 @@ zend_bool zend_stat_strings_startup(zend_long strings) {
         }
     }
 
+    ZTSG(arena) = zend_stat_arena_create(strings);
+
     return 1;
+}
+
+zend_stat_string_t* zend_stat_string_temporary(const char *value, size_t length) {
+    size_t size = sizeof(zend_stat_string_t) + (length + 1);
+    zend_stat_string_t *temporary =
+        (zend_stat_string_t*)
+            zend_stat_arena_alloc(ZTSG(arena), size);
+
+    if (UNEXPECTED(NULL == temporary)) {
+        return NULL;
+    }
+
+    memset(temporary, size, 0);
+
+    temporary->u.type = ZEND_STAT_STRING_TEMPORARY;
+    temporary->u.refcount = 1;
+
+    temporary->length = length;
+    temporary->value =
+        (char*) (((char*) temporary) + sizeof(zend_stat_string_t));
+    memcpy(temporary->value, value, length);
+
+    temporary->value[length] = 0;
+
+    return temporary;
+}
+
+zend_stat_string_t* zend_stat_string_copy(zend_stat_string_t *string) {
+    if (UNEXPECTED(ZEND_STAT_STRING_PERSISTENT == __atomic_load_n(&string->u.type, __ATOMIC_SEQ_CST))) {
+        return string;
+    }
+
+    __atomic_add_fetch(
+        &string->u.refcount,
+        1, __ATOMIC_SEQ_CST);
+
+    return string;
+}
+
+void zend_stat_string_release(zend_stat_string_t *string) {
+    uint32_t rc;
+
+    if (UNEXPECTED(__atomic_load_n(&string->u.type, __ATOMIC_SEQ_CST) == ZEND_STAT_STRING_PERSISTENT)) {
+        return;
+    }
+
+    if (__atomic_sub_fetch(&string->u.refcount, 1, __ATOMIC_SEQ_CST) == 0) {
+        zend_stat_arena_free(ZTSG(arena), string);
+        return;
+    }
 }
 
 zend_stat_string_t *zend_stat_string_opcode(zend_uchar opcode) {
@@ -224,10 +278,12 @@ zend_stat_string_t *zend_stat_string_opcode(zend_uchar opcode) {
 }
 
 zend_stat_string_t *zend_stat_string(zend_string *string) {
-    return zend_stat_string_copy(string);
+    return zend_stat_string_persistent(string);
 }
 
 void zend_stat_strings_shutdown(void) {
+    zend_stat_arena_destroy(ZTSG(arena));
+
     zend_stat_unmap(zend_stat_strings, ZTSG(size));
 }
 

@@ -103,6 +103,8 @@ void zend_stat_buffer_insert(zend_stat_buffer_t *buffer, zend_stat_sample_t *inp
         break;
     } while(1);
 
+    zend_stat_request_release(&sample->request);
+
     memcpy(
         ZEND_STAT_SAMPLE_DATA(sample),
         ZEND_STAT_SAMPLE_DATA(input),
@@ -166,8 +168,11 @@ zend_bool zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
         }
 
         if (!zend_stat_sample_write(&sampled, fd)) {
+            zend_stat_request_release(&sampled.request);
             return 0;
         }
+
+        zend_stat_request_release(&sampled.request);
     }
 
     return 1;
