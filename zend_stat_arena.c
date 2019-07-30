@@ -182,10 +182,29 @@ void zend_stat_arena_free(zend_stat_arena_t *arena, void *mem) {
     pthread_mutex_unlock(&arena->mutex);
 }
 
+#ifdef ZEND_DEBUG
+static zend_always_inline void zend_stat_arena_debug(zend_stat_arena_t *arena) {
+    zend_stat_arena_block_t *block = arena->start;
+
+    while (NULL != block) {
+        if (block->used) {
+            fprintf(stderr,
+                "[STAT] %p leaked "ZEND_LONG_FMT" bytes\n",
+                block->mem, block->size);
+        }
+        block = block->next;
+    }
+}
+#endif
+
 void zend_stat_arena_destroy(zend_stat_arena_t *arena) {
     if (!arena) {
         return;
     }
+
+#ifdef ZEND_DEBUG
+    zend_stat_arena_debug(arena);
+#endif
 
     pthread_mutex_destroy(&arena->mutex);
 

@@ -195,6 +195,17 @@ void zend_stat_buffer_arginfo_set(zend_stat_buffer_t *buffer, zend_bool arginfo)
 }
 
 void zend_stat_buffer_shutdown(zend_stat_buffer_t *buffer) {
+#ifdef ZEND_DEBUG
+    zend_stat_sample_t *sample = buffer->samples,
+                       *end    = sample + buffer->max;
+
+    while (sample < end) {
+        if (sample->type != ZEND_STAT_SAMPLE_UNUSED) {
+            zend_stat_request_release(&sample->request);
+        }
+        sample++;
+    }
+#endif
     zend_stat_unmap(buffer, zend_stat_buffer_size(buffer->max));
 }
 
