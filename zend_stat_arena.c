@@ -119,11 +119,10 @@ zend_stat_arena_t* zend_stat_arena_create(zend_long size) {
 
 void* zend_stat_arena_alloc(zend_stat_arena_t *arena, zend_long size) {
     zend_long aligned =
-        zend_stat_arena_aligned(
-            sizeof(zend_stat_arena_block_t) + size);
+        zend_stat_arena_aligned(sizeof(zend_stat_arena_block_t) + size);
     zend_stat_arena_block_t *block;
 
-    if (pthread_mutex_lock(&arena->mutex) != SUCCESS) {
+    if (UNEXPECTED(SUCCESS != pthread_mutex_lock(&arena->mutex))) {
         return NULL;
     }
 
@@ -133,7 +132,7 @@ void* zend_stat_arena_alloc(zend_stat_arena_t *arena, zend_long size) {
         goto _zend_stat_arena_alloc_leave;
     }
 
-    if (UNEXPECTED((arena->brk + aligned) > arena->size)) {
+    if (UNEXPECTED((((char*)arena->brk) + aligned) > (((char*) arena->mem) + arena->size))) {
         /* OOM */
         goto _zend_stat_arena_alloc_leave;
     }
@@ -166,10 +165,12 @@ void zend_stat_arena_free(zend_stat_arena_t *arena, void *mem) {
 
     pthread_mutex_lock(&arena->mutex);
 
-    if (NULL != block->next) {
-        if (0 == block->next->used) {
+    while (NULL != block->next) {
+        if ((0 == block->next->used)) {
             block->size += block->next->size;
             block->next = block->next->next;
+        } else {
+            break;
         }
     }
 

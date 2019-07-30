@@ -213,6 +213,9 @@ zend_bool zend_stat_strings_startup(zend_long strings) {
                     zend_stat_string_init(
                         (char*) name + (sizeof("ZEND_")-1),
                         strlen(name) - (sizeof("ZEND_")-1));
+            } else {
+                zend_stat_strings_opcodes[it] =
+                    zend_stat_string_init(ZEND_STRL("UNKNOWN"));
             }
             it++;
         }
