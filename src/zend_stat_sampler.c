@@ -175,9 +175,6 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
 
     sample.elapsed = zend_stat_time();
 
-    zend_stat_request_copy(
-        &sample.request, sampler->request);
-
     /* This can never fail while the sampler is active */
     zend_stat_sampler_read(sampler,
         ZEND_STAT_ADDRESSOF(
@@ -189,7 +186,7 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
         /* There is no current execute data set */
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
-        goto _zend_stat_sample_return;
+        goto _zend_stat_sample_finish;
     }
 
     if (UNEXPECTED((zend_stat_sampler_read(sampler,
@@ -198,7 +195,7 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
         /* The frame was freed before it could be sampled */
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
-        goto _zend_stat_sample_return;
+        goto _zend_stat_sample_finish;
     }
 
     if (UNEXPECTED((NULL != frame.opline) &&
@@ -207,7 +204,7 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
         /* The instruction pointer is in an op array that was free'd */
         sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
-        goto _zend_stat_sample_return;
+        goto _zend_stat_sample_finish;
     }
 
     if (UNEXPECTED(zend_stat_buffer_arginfo_get(sampler->buffer))) {
@@ -234,7 +231,7 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
 
         memset(&sample.arginfo, 0, sizeof(sample.arginfo));
 
-        goto _zend_stat_sample_return;
+        goto _zend_stat_sample_finish;
     }
 
     if (function.type == ZEND_USER_FUNCTION) {
@@ -247,7 +244,7 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
 
             memset(&sample.arginfo,  0, sizeof(sample.arginfo));
 
-            goto _zend_stat_sample_return;
+            goto _zend_stat_sample_finish;
         }
 
         sample.type                = ZEND_STAT_SAMPLE_USER;
@@ -273,7 +270,7 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
             memset(&sample.location, 0, sizeof(sample.location));
             memset(&sample.arginfo,  0, sizeof(sample.arginfo));
 
-            goto _zend_stat_sample_return;
+            goto _zend_stat_sample_finish;
         }
     }
 
@@ -289,7 +286,12 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
         memset(&sample.symbol,   0, sizeof(sample.symbol));
     }
 
-_zend_stat_sample_return:
+_zend_stat_sample_finish:
+    /* This is just a memcpy and some adds,
+        request data is refcounted. */
+    zend_stat_request_copy(
+        &sample.request, sampler->request);
+
     zend_stat_buffer_insert(sampler->buffer, &sample);
 } /* }}} */
 
