@@ -30,6 +30,19 @@ char*        zend_stat_ini_stream    = NULL;
 char*        zend_stat_ini_control   = NULL;
 int          zend_stat_ini_dump      = -1;
 
+#if PHP_VERSION_ID < 70300
+static zend_always_inline zend_bool zend_stat_ini_parse_bool(zend_string *new_value) {
+    if (SUCCESS == strcasecmp("on", ZSTR_VAL(new_value)) ||
+        SUCCESS == strcasecmp("true", ZSTR_VAL(new_value)) ||
+        SUCCESS == strcasecmp("yes", ZSTR_VAL(new_value))) {
+        return 1;
+    }
+    return zend_atoi(ZSTR_VAL(new_value));
+}
+#else
+#define zend_stat_ini_parse_bool zend_ini_parse_bool
+#endif
+
 static ZEND_INI_MH(zend_stat_ini_update_samples)
 {
     if (UNEXPECTED(zend_stat_ini_samples != -1)) {
@@ -71,7 +84,7 @@ static ZEND_INI_MH(zend_stat_ini_update_interval)
 static ZEND_INI_MH(zend_stat_ini_update_arginfo)
 {
     zend_stat_ini_arginfo =
-        zend_ini_parse_bool(new_value);
+        zend_stat_ini_parse_bool(new_value);
 
     return SUCCESS;
 }
