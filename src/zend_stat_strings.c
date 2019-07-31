@@ -201,11 +201,12 @@ zend_bool zend_stat_strings_startup(zend_long strings) {
     memset(ZTSB(memory), 0, zend_stat_strings_buffer_size);
 
     {
-        int it = 0, end = 256;
+        int it = 0,
+            end = ZEND_VM_LAST_OPCODE;
 
         memset(zend_stat_strings_opcodes, 0, sizeof(zend_stat_strings_opcodes));
 
-        while (it < end) {
+        while (it <= end) {
             const char *name = zend_get_opcode_name(it);
 
             if (name) {
