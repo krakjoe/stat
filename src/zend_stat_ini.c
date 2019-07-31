@@ -37,7 +37,7 @@ static zend_always_inline zend_bool zend_stat_ini_parse_bool(zend_string *new_va
         SUCCESS == strcasecmp("yes", ZSTR_VAL(new_value))) {
         return 1;
     }
-    return zend_atoi(ZSTR_VAL(new_value));
+    return (zend_bool) atoi(ZSTR_VAL(new_value));
 }
 #else
 #define zend_stat_ini_parse_bool zend_ini_parse_bool
