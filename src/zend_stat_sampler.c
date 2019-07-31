@@ -173,10 +173,10 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
     zend_op opline;
     zend_stat_sample_t sample = zend_stat_sample_empty;
 
+    sample.elapsed = zend_stat_time();
+
     zend_stat_request_copy(
         &sample.request, sampler->request);
-
-    sample.elapsed = zend_stat_time();
 
     /* This can never fail while the sampler is active */
     zend_stat_sampler_read(sampler,
