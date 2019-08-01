@@ -72,7 +72,7 @@ static zend_always_inline zend_stat_arena_block_t* zend_stat_arena_find(zend_sta
         if ((0 == block->used)) {
             if ((block->size >= size)) {
                 block->used = 1;
-                break;
+                goto _zend_stat_arena_found;
             } else {
                 if (NULL != block->next) {
                     if ((0 == block->next->used) &&
@@ -80,7 +80,7 @@ static zend_always_inline zend_stat_arena_block_t* zend_stat_arena_find(zend_sta
                         block->size += block->next->size;
                         block->next = block->next->next;
                         block->used = 1;
-                        break;
+                        goto _zend_stat_arena_found;
                     }
                 }
             }
@@ -89,8 +89,11 @@ static zend_always_inline zend_stat_arena_block_t* zend_stat_arena_find(zend_sta
         block = block->next;
     }
 
+    return NULL;
+
+_zend_stat_arena_found:
     if ((NULL != block) && (block->size > size)) {
-        if ((NULL == block->next)) {
+        if (NULL == block->next) {
             block->size = size;
         }
     }
