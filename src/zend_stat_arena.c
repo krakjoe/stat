@@ -119,8 +119,6 @@ zend_stat_arena_t* zend_stat_arena_create(zend_long size) {
         return NULL;
     }
 
-    memset(arena, 0, aligned);
-
     if (!zend_stat_mutex_init(&arena->mutex, 1)) {
         zend_stat_unmap(arena, aligned);
         return NULL;

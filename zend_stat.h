@@ -39,7 +39,7 @@
 double zend_stat_time(void);
 
 static zend_always_inline void* zend_stat_map(zend_long size) {
-    void *mapped = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, 0, 0);
+    void *mapped = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
 
     if (EXPECTED(mapped != MAP_FAILED)) {
         return mapped;
