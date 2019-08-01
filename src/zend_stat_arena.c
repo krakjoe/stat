@@ -192,7 +192,7 @@ void* zend_stat_arena_alloc(zend_stat_arena_t *arena, zend_long size) {
 _zend_stat_arena_alloc_leave:
     pthread_mutex_unlock(&arena->mutex);
 
-    return block->mem;
+    return memset(block->mem, 0, block->size);
 
 _zend_stat_arena_alloc_oom:
     pthread_mutex_unlock(&arena->mutex);
