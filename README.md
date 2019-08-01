@@ -56,6 +56,7 @@ Stat can stream over a unix or TCP socket, the following are valid examples:
 Upon connection, stat will stream the ring buffer with each sample on a new line, encoded as json with the following prettified format:
 
     {
+        "type": "string",
         "request": {
             "pid": int,
             "elapsed": double,
@@ -84,11 +85,11 @@ The nature of a ring buffer means that the samples may not be in the correct tem
 
 Notes:
 
+  - `type` may be `memory`, `internal`, or `user`
   - the absence of `location` and `symbol` signifies that the executor is not currently executing
   - the presence of `location` and absence of `symbol` signifies that the executor is currently executing in a file
-  - the absence of `location` and presence of `symbol` signifies that the executor is currently executing internal code
   - the absense of `line` in `location` signifies that a line number is not available for the current instruction
-  - the `offset` in `location` refers to the offset of `opcode` from entry to `symbol`
+  - the `offset` in `location` refers to the offset of `opcode` from entry to `symbol` (always available)
 
 ## To control Stat:
 

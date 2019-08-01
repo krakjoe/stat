@@ -254,7 +254,38 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
         }
         sample.location.offset     = frame.opline - function.op_array.opcodes;
     } else {
+        zend_execute_data prev;
+        zend_function pfunc;
+
         sample.type = ZEND_STAT_SAMPLE_INTERNAL;
+
+        while (zend_stat_sampler_read(sampler,
+                frame.prev_execute_data,
+                &prev, sizeof(zend_execute_data)) == SUCCESS) {
+            if (EXPECTED(zend_stat_sampler_read_symbol(sampler,
+                    prev.func, &pfunc) == SUCCESS)) {
+                if (pfunc.type == ZEND_USER_FUNCTION) {
+                    if (EXPECTED(zend_stat_sampler_read(sampler,
+                            prev.opline, &opline, sizeof(zend_op)) == SUCCESS)) {
+                        sample.location.file =
+                            zend_stat_sampler_read_string(
+                                sampler, pfunc.op_array.filename);
+
+                        if (EXPECTED(NULL != sample.location.file)) {
+                            /* don't need to call unlined, call opcodes will always be lined */
+                            sample.location.line = opline.lineno;
+                            sample.location.opcode = opline.opcode;
+                            sample.location.offset =
+                                prev.opline - pfunc.op_array.opcodes;
+                        }
+                    }
+                    break;
+                }
+            } else {
+                break;
+            }
+            frame = prev;
+        }
     }
 
     if (function.common.scope) {

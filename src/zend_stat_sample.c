@@ -25,8 +25,22 @@
 
 zend_bool zend_stat_sample_write(zend_stat_sample_t *sample, int fd) {
     zend_stat_io_write_literal_ex(fd, "{", return 0);
+    zend_stat_io_write_literal_ex(fd, "\"type\": ", return 0);
+    switch (sample->type) {
+        case ZEND_STAT_SAMPLE_MEMORY:
+            zend_stat_io_write_literal_ex(fd, "\"memory\"", return 0);
+        break;
 
-    zend_stat_io_write_literal_ex(fd, "\"request\": {", return 0);
+        case ZEND_STAT_SAMPLE_INTERNAL:
+            zend_stat_io_write_literal_ex(fd, "\"internal\"", return 0);
+        break;
+
+        case ZEND_STAT_SAMPLE_USER:
+            zend_stat_io_write_literal_ex(fd, "\"user\"", return 0);
+        break;
+    }
+
+    zend_stat_io_write_literal_ex(fd, ", \"request\": {", return 0);
     zend_stat_io_write_literal_ex(fd, "\"pid\": ", return 0);
     zend_stat_io_write_int_ex(fd, sample->request.pid, return 0);
     zend_stat_io_write_literal_ex(fd, ", \"elapsed\": ", return 0);
