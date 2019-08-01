@@ -30,17 +30,32 @@ struct _zend_stat_arena_block_t {
     zend_long                    size;
     zend_bool                    used;
     zend_stat_arena_block_t     *next;
+#ifdef ZEND_DEBUG
+    /* Currently this is unused, except useful for debugging */
+    zend_stat_arena_block_t     *prev;
+#endif
     zend_stat_arena_ptr_t        mem[1];
 };
+
+#define ZEND_STAT_ARENA_BLOCK_SIZE \
+    zend_stat_arena_aligned(sizeof(zend_stat_arena_block_t))
 
 struct _zend_stat_arena_t {
     pthread_mutex_t               mutex;
     zend_long                     size;
-    zend_long                     brk;
-    zend_stat_arena_block_t      *mem;
-    zend_stat_arena_block_t      *start;
-    zend_stat_arena_block_t      *end;
+    zend_ulong                    bytes;
+    char                         *brk;
+    char                         *end;
+    struct {
+        zend_stat_arena_block_t  *start;
+        zend_stat_arena_block_t  *end;
+    } list;
 };
+
+#define ZEND_STAT_ARENA_SIZE \
+    zend_stat_arena_aligned(sizeof(zend_stat_arena_t))
+#define ZEND_STAT_ARENA_OOM \
+    (void*) -1
 
 static zend_always_inline zend_long zend_stat_arena_aligned(zend_long size) {
     return (size + sizeof(zend_stat_arena_ptr_t) - 1) & ~(sizeof(zend_stat_arena_ptr_t) - 1);
@@ -51,7 +66,7 @@ static zend_always_inline zend_stat_arena_block_t* zend_stat_arena_block(void *m
 }
 
 static zend_always_inline zend_stat_arena_block_t* zend_stat_arena_find(zend_stat_arena_t *arena, zend_long size) {
-    zend_stat_arena_block_t *block = arena->start;
+    zend_stat_arena_block_t *block = arena->list.start;
 
     while (NULL != block) {
         if ((0 == block->used)) {
@@ -93,9 +108,8 @@ static zend_always_inline zend_stat_arena_block_t* zend_stat_arena_find(zend_sta
 }
 
 zend_stat_arena_t* zend_stat_arena_create(zend_long size) {
-    pthread_mutexattr_t attr;
     zend_long aligned =
-        zend_stat_arena_aligned(sizeof(zend_stat_arena_t) + size);
+        zend_stat_arena_aligned(ZEND_STAT_ARENA_SIZE + size);
     zend_stat_arena_t *arena =
         (zend_stat_arena_t*)
             zend_stat_map(aligned);
@@ -106,26 +120,42 @@ zend_stat_arena_t* zend_stat_arena_create(zend_long size) {
 
     memset(arena, 0, aligned);
 
-    arena->size = aligned;
-    arena->mem =
-        (zend_stat_arena_block_t*)
-            (((char*) arena) + sizeof(zend_stat_arena_t));
+    if (!zend_stat_mutex_init(&arena->mutex, 1)) {
+        zend_stat_unmap(arena, aligned);
+        return NULL;
+    }
 
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_setpshared(
-        &attr, PTHREAD_PROCESS_SHARED);
-    pthread_mutex_init(&arena->mutex, &attr);
-    pthread_mutexattr_destroy(&attr);
+    arena->end = (char*) (((char*) arena) + aligned);
+    arena->brk = (char*) (((char*) arena) + ZEND_STAT_ARENA_SIZE);
+    arena->bytes = arena->end - arena->brk;
+    arena->size = aligned;
 
     return arena;
 }
 
+static zend_stat_arena_block_t* zend_stat_arena_brk(zend_stat_arena_t *arena, zend_long size) {
+    if (brk > 0) {
+        size =
+            zend_stat_arena_aligned(
+                ZEND_STAT_ARENA_BLOCK_SIZE + size);
+
+        if (UNEXPECTED((arena->brk + size) > arena->end)) {
+            return ZEND_STAT_ARENA_OOM;
+        }
+
+        arena->brk += size;
+    }
+
+    return (zend_stat_arena_block_t*) arena->brk;
+}
+
 void* zend_stat_arena_alloc(zend_stat_arena_t *arena, zend_long size) {
     zend_long aligned =
-        zend_stat_arena_aligned(sizeof(zend_stat_arena_block_t) + size);
+        zend_stat_arena_aligned(size);
     zend_stat_arena_block_t *block;
 
-    if (UNEXPECTED(SUCCESS != pthread_mutex_lock(&arena->mutex))) {
+    if (UNEXPECTED(SUCCESS !=
+            pthread_mutex_lock(&arena->mutex))) {
         return NULL;
     }
 
@@ -135,37 +165,59 @@ void* zend_stat_arena_alloc(zend_stat_arena_t *arena, zend_long size) {
         goto _zend_stat_arena_alloc_leave;
     }
 
-    if (UNEXPECTED((((char*)arena->brk) + aligned) > (((char*) arena->mem) + arena->size))) {
-        /* OOM */
-        goto _zend_stat_arena_alloc_leave;
+    block = zend_stat_arena_brk(arena, 0);
+
+    if (UNEXPECTED(zend_stat_arena_brk(
+            arena, aligned) == ZEND_STAT_ARENA_OOM)) {
+        goto _zend_stat_arena_alloc_oom;
     }
 
-    block =
-        (zend_stat_arena_block_t*)
-            (((char*) arena->mem) + arena->brk);
     block->used = 1;
     block->size = aligned;
+#ifdef ZEND_DEBUG
+    block->prev = arena->list.end;
+#endif
 
-    if (UNEXPECTED(NULL == arena->start)) {
-        arena->start = block;
+    if (UNEXPECTED(NULL == arena->list.start)) {
+        arena->list.start = block;
     }
 
-    if (EXPECTED(NULL != arena->end)) {
-        arena->end->next = block;
+    if (EXPECTED(NULL != arena->list.end)) {
+        arena->list.end->next = block;
     }
 
-    arena->end = block;
-    arena->brk += aligned;
+    arena->list.end = block;
 
 _zend_stat_arena_alloc_leave:
     pthread_mutex_unlock(&arena->mutex);
 
     return block->mem;
+
+_zend_stat_arena_alloc_oom:
+    pthread_mutex_unlock(&arena->mutex);
+
+    return NULL;
 }
+
+#ifdef ZEND_DEBUG
+static zend_always_inline zend_bool zend_stat_arena_owns(zend_stat_arena_t *arena, void *mem) {
+    if (UNEXPECTED((((char*) mem) < ((char*) arena)) || (((char*) mem) > arena->end))) {
+        return 0;
+    }
+
+    return 1;
+}
+#endif
 
 void zend_stat_arena_free(zend_stat_arena_t *arena, void *mem) {
     zend_stat_arena_block_t *block = zend_stat_arena_block(mem);
 
+#ifdef ZEND_DEBUG
+    ZEND_ASSERT(zend_stat_arena_owns(arena, mem));
+#endif
+
+    /* Currently this is not a very high frequency function, it is only
+        ever invoked by rshutdown. */
     pthread_mutex_lock(&arena->mutex);
 
     while (NULL != block->next) {
@@ -184,7 +236,7 @@ void zend_stat_arena_free(zend_stat_arena_t *arena, void *mem) {
 
 #ifdef ZEND_DEBUG
 static zend_always_inline void zend_stat_arena_debug(zend_stat_arena_t *arena) {
-    zend_stat_arena_block_t *block = arena->start;
+    zend_stat_arena_block_t *block = arena->list.start;
 
     while (NULL != block) {
         if (block->used) {
@@ -206,7 +258,7 @@ void zend_stat_arena_destroy(zend_stat_arena_t *arena) {
     zend_stat_arena_debug(arena);
 #endif
 
-    pthread_mutex_destroy(&arena->mutex);
+    zend_stat_mutex_destroy(&arena->mutex);
 
     zend_stat_unmap(arena, arena->size);
 }

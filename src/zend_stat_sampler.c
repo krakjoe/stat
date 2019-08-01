@@ -382,8 +382,10 @@ void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, zend_stat_request_
                 ZEND_EXECUTOR_ADDRESS,
                 current_execute_data);
 
-    pthread_mutex_init(&sampler->timer.mutex, NULL);
-    pthread_cond_init(&sampler->timer.cond, NULL);
+    if (!zend_stat_mutex_init(&sampler->timer.mutex, 0) ||
+        !zend_stat_condition_init(&sampler->timer.cond, 0)) {
+        return;
+    }
 
     if (pthread_create(
             &sampler->timer.thread, NULL,
@@ -412,8 +414,8 @@ void zend_stat_sampler_deactivate(zend_stat_sampler_t *sampler) { /* {{{ */
 
     pthread_join(sampler->timer.thread, NULL);
 
-    pthread_cond_destroy(&sampler->timer.cond);
-    pthread_mutex_destroy(&sampler->timer.mutex);
+    zend_stat_condition_destroy(&sampler->timer.cond);
+    zend_stat_mutex_destroy(&sampler->timer.mutex);
 } /* }}} */
 
 #endif /* ZEND_STAT_SAMPLER */

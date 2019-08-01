@@ -56,6 +56,58 @@ static zend_always_inline void zend_stat_unmap(void *address, zend_long size) {
     munmap(address, size);
 }
 
+static zend_always_inline zend_bool zend_stat_mutex_init(pthread_mutex_t *mutex, zend_bool shared) {
+    pthread_mutexattr_t attributes;
+
+    pthread_mutexattr_init(&attributes);
+
+    if (shared) {
+        if (pthread_mutexattr_setpshared(
+                &attributes, PTHREAD_PROCESS_SHARED) != SUCCESS) {
+            pthread_mutexattr_destroy(&attributes);
+            return 0;
+        }
+    }
+
+    if (pthread_mutex_init(mutex, &attributes) != SUCCESS) {
+        pthread_mutexattr_destroy(&attributes);
+        return 0;
+    }
+
+    pthread_mutexattr_destroy(&attributes);
+    return 1;
+}
+
+static zend_always_inline void zend_stat_mutex_destroy(pthread_mutex_t *mutex) {
+    pthread_mutex_destroy(mutex);
+}
+
+static zend_always_inline zend_bool zend_stat_condition_init(pthread_cond_t *condition, zend_bool shared) {
+    pthread_condattr_t attributes;
+
+    pthread_condattr_init(&attributes);
+
+    if (shared) {
+        if (pthread_condattr_setpshared(
+                &attributes, PTHREAD_PROCESS_SHARED) != SUCCESS) {
+            pthread_condattr_destroy(&attributes);
+            return 0;
+        }
+    }
+
+    if (pthread_cond_init(condition, &attributes) != SUCCESS) {
+        pthread_condattr_destroy(&attributes);
+        return 0;
+    }
+
+    pthread_condattr_destroy(&attributes);
+    return 1;
+}
+
+static zend_always_inline void zend_stat_condition_destroy(pthread_cond_t *condition) {
+    pthread_cond_destroy(condition);
+}
+
 # if defined(ZTS) && defined(COMPILE_DL_STAT)
 ZEND_TSRMLS_CACHE_EXTERN()
 # endif
