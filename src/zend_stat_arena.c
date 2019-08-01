@@ -90,17 +90,7 @@ static zend_always_inline zend_stat_arena_block_t* zend_stat_arena_find(zend_sta
     }
 
     if ((NULL != block) && (block->size > size)) {
-        if ((NULL == block->next) || (0 == block->next->used)) {
-            if ((NULL != block->next)) {
-                block->next =
-                    (zend_stat_arena_block_t*)
-                        memmove(
-                            (((char*) block->next) - (block->size - size)),
-                            block->next,
-                            zend_stat_arena_aligned(
-                                ZEND_STAT_ARENA_BLOCK_SIZE + block->next->size));
-                block->next->size += (block->size - size);
-            }
+        if ((NULL == block->next)) {
             block->size = size;
         }
     }
