@@ -61,17 +61,7 @@ zend_bool zend_stat_request_create(zend_stat_request_t *request) {
         }
     }
 
-    if (EXPECTED(ri->query_string)) {
-        request->query =
-            zend_stat_string_temporary(
-                ri->query_string, strlen(ri->query_string));
-
-        if (UNEXPECTED(NULL == request->query)) {
-            zend_stat_request_release(request);
-
-            return 0;
-        }
-    }
+    /* anything else ? */
 
     return 1;
 }

@@ -58,11 +58,6 @@ zend_bool zend_stat_sample_write(zend_stat_sample_t *sample, int fd) {
         zend_stat_io_write_literal_ex(fd, "\"", return 0);
     }
 
-    if (sample->request.query) {
-        zend_stat_io_write_literal_ex(fd, ", \"query\": \"", return 0);
-        zend_stat_io_write_string_ex(fd, sample->request.query, return 0);
-        zend_stat_io_write_literal_ex(fd, "\"", return 0);
-    }
     zend_stat_io_write_literal_ex(fd, "}", return 0);
 
     zend_stat_io_write_literal_ex(fd, ", \"elapsed\": ", return 0);

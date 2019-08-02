@@ -26,7 +26,6 @@ typedef struct _zend_stat_request_t {
     double              elapsed;
     zend_stat_string_t *method;
     zend_stat_string_t *uri;
-    zend_stat_string_t *query;
 
 } zend_stat_request_t;
 
@@ -42,10 +41,6 @@ static zend_always_inline void zend_stat_request_copy(zend_stat_request_t *dest,
     if (dest->uri) {
         dest->uri = zend_stat_string_copy(dest->uri);
     }
-
-    if (dest->query) {
-        dest->query = zend_stat_string_copy(dest->query);
-    }
 }
 
 static zend_always_inline void zend_stat_request_release(zend_stat_request_t *request) {
@@ -55,10 +50,6 @@ static zend_always_inline void zend_stat_request_release(zend_stat_request_t *re
 
     if (request->uri) {
         zend_stat_string_release(request->uri);
-    }
-
-    if (request->query) {
-        zend_stat_string_release(request->query);
     }
 
     memset(request, 0, sizeof(zend_stat_request_t));
