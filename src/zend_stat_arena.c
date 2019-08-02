@@ -30,15 +30,13 @@ struct _zend_stat_arena_block_t {
     zend_long                    size;
     zend_bool                    used;
     zend_stat_arena_block_t     *next;
-#ifdef ZEND_DEBUG
-    /* Currently this is unused, except useful for debugging */
-    zend_stat_arena_block_t     *prev;
-#endif
     zend_stat_arena_ptr_t        mem[1];
 };
 
 #define ZEND_STAT_ARENA_BLOCK_SIZE \
     zend_stat_arena_aligned(sizeof(zend_stat_arena_block_t))
+#define ZEND_STAT_ARENA_BLOCK_MIN \
+    (ZEND_STAT_ARENA_BLOCK_SIZE * 2)
 
 struct _zend_stat_arena_t {
     pthread_mutex_t               mutex;
@@ -67,6 +65,7 @@ static zend_always_inline zend_stat_arena_block_t* zend_stat_arena_block(void *m
 
 static zend_always_inline zend_stat_arena_block_t* zend_stat_arena_find(zend_stat_arena_t *arena, zend_long size) {
     zend_stat_arena_block_t *block = arena->list.start;
+    zend_long wasted;
 
     while (NULL != block) {
         if ((0 == block->used)) {
@@ -92,10 +91,22 @@ static zend_always_inline zend_stat_arena_block_t* zend_stat_arena_find(zend_sta
     return NULL;
 
 _zend_stat_arena_found:
-    if ((NULL != block) && (block->size > size)) {
-        if (NULL == block->next) {
-            block->size = size;
+    if ((NULL != block) &&
+        ((wasted = (block->size - size)) > 0)) {
+        if ((wasted > ZEND_STAT_ARENA_BLOCK_MIN)) {
+            zend_stat_arena_block_t *reclaim =
+                (zend_stat_arena_block_t*)
+                    (((char*) block->mem) + size);
+
+            reclaim->used = 0;
+            reclaim->size =
+                (wasted - ZEND_STAT_ARENA_BLOCK_SIZE);
+            reclaim->next = block->next;
+
+            block->next  = reclaim;
         }
+
+        block->size = size;
     }
 
     return block;
@@ -166,9 +177,6 @@ void* zend_stat_arena_alloc(zend_stat_arena_t *arena, zend_long size) {
 
     block->used = 1;
     block->size = aligned;
-#ifdef ZEND_DEBUG
-    block->prev = arena->list.end;
-#endif
 
     if (UNEXPECTED(NULL == arena->list.start)) {
         arena->list.start = block;
