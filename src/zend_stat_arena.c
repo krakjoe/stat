@@ -220,8 +220,13 @@ void zend_stat_arena_free(zend_stat_arena_t *arena, void *mem) {
         ever invoked by rshutdown. */
     pthread_mutex_lock(&arena->mutex);
 
-    while (NULL != block->next) {
+    while ((NULL != block->next) &&
+           (NULL != block->next->next)) {
         if ((0 == block->next->used)) {
+            if (arena->list.end == block->next) {
+                arena->list.end = block->next->next;
+            }
+
             block->size += block->next->size;
             block->next = block->next->next;
         } else {
