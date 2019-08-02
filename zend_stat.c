@@ -100,7 +100,8 @@ static int zend_stat_startup(zend_extension *ze) {
     if (!(zend_stat_buffer = zend_stat_buffer_startup(
             zend_stat_ini_samples,
             zend_stat_ini_interval,
-            zend_stat_ini_arginfo))) {
+            zend_stat_ini_arginfo,
+            zend_stat_ini_samplers))) {
         zend_stat_strings_shutdown();
         zend_stat_ini_shutdown();
 
@@ -172,15 +173,17 @@ static void zend_stat_activate(void) {
         return;
     }
 
-#if defined(ZTS)
+    if (!zend_stat_buffer_samplers_add(zend_stat_buffer)) {
+        return;
+    }
+
     zend_stat_sampler_activate(&zend_stat_sampler, &zend_stat_request, zend_stat_buffer);
-#else
-    zend_stat_sampler_activate(&zend_stat_sampler, &zend_stat_request, zend_stat_buffer);
-#endif
 }
 
 static void zend_stat_deactivate(void) {
     zend_stat_sampler_deactivate(&zend_stat_sampler);
+
+    zend_stat_buffer_samplers_remove(zend_stat_buffer);
 
     zend_stat_request_release(&zend_stat_request);
 }

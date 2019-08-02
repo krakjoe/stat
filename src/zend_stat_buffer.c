@@ -27,6 +27,7 @@ struct _zend_stat_buffer_t {
     struct {
         zend_ulong interval;
         zend_bool  arginfo;
+        zend_ulong samplers;
     } options;
 
     zend_stat_sample_t *samples;
@@ -35,6 +36,7 @@ struct _zend_stat_buffer_t {
     zend_stat_sample_t *end;
     zend_ulong max;
     zend_ulong used;
+    zend_ulong samplers;
 };
 
 static size_t zend_always_inline zend_stat_buffer_size(zend_long samples) {
@@ -42,7 +44,7 @@ static size_t zend_always_inline zend_stat_buffer_size(zend_long samples) {
                   (samples * sizeof(zend_stat_sample_t));
 }
 
-zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples, zend_long interval, zend_bool arginfo) {
+zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples, zend_long interval, zend_bool arginfo, zend_long samplers) {
     size_t size = zend_stat_buffer_size(samples);
     zend_stat_buffer_t *buffer = zend_stat_map(size);
 
@@ -64,6 +66,7 @@ zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples, zend_long interv
 
     buffer->options.interval  = interval * 1000;
     buffer->options.arginfo   = arginfo;
+    buffer->options.samplers  = samplers;
 
     memset(buffer->samples, 0, sizeof(zend_stat_sample_t) * buffer->max);
 
@@ -192,6 +195,25 @@ zend_bool zend_stat_buffer_arginfo_get(zend_stat_buffer_t *buffer) {
 
 void zend_stat_buffer_arginfo_set(zend_stat_buffer_t *buffer, zend_bool arginfo) {
     __atomic_store_n(&buffer->options.arginfo, arginfo, __ATOMIC_SEQ_CST);
+}
+
+zend_bool zend_stat_buffer_samplers_add(zend_stat_buffer_t *buffer) {
+    zend_long samplers = __atomic_add_fetch(&buffer->samplers, 1, __ATOMIC_SEQ_CST),
+              limit    = __atomic_load_n(&buffer->options.samplers, __ATOMIC_SEQ_CST);
+
+    if ((limit <= 0) || (samplers <= limit)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+void zend_stat_buffer_samplers_remove(zend_stat_buffer_t *buffer) {
+    __atomic_sub_fetch(&buffer->samplers, 1, __ATOMIC_SEQ_CST);
+}
+
+void zend_stat_buffer_samplers_set(zend_stat_buffer_t *buffer, zend_long samplers) {
+    __atomic_store_n(&buffer->options.samplers, samplers, __ATOMIC_SEQ_CST);
 }
 
 void zend_stat_buffer_shutdown(zend_stat_buffer_t *buffer) {

@@ -35,12 +35,13 @@ The following configuration directives are available:
 | Name           | Default                   | Purpose                                                        |
 |:---------------|:--------------------------|:---------------------------------------------------------------|
 |stat.samples    |`10000`                    | Set to the maximum number of samples in the buffer             |
+|stat.samplers   |`0` (unlimited)            | Set to limit number of concurrent samplers                     |
 |stat.interval   |`100`                      | Set interval for sampling in microseconds, minimum 10ms        |
 |stat.arginfo    |`Off`                      | Enable collection of argument info                             |
 |stat.strings    |`32M`                      | Set size of string buffer (supports suffixes, be generous)     |
 |stat.stream     |`zend.stat.stream`         | Set stream socket, setting to 0 disables stream                |
 |stat.control    |`zend.stat.control`        | Set control socket, setting to 0 disables control              |
-|stat.dump       |`0`                        | Set to a file descriptor for dump on shutdown                  |
+|stat.dump       |`0` (disabled)             | Set to a file descriptor for dump on shutdown                  |
 
 ## To retrieve samples from Stat:
 
@@ -112,8 +113,21 @@ The following controls are defined:
 |:---------------|:--------------------------|:---------------------------------------------------------------|
 | interval       | `1<<1`                    | Sets the interval for sampling                                 |
 | arginfo        | `1<<2`                    | Enables/disables the collection of arginfo                     |
+| samplers       | `1<<3`                    | Controls the maximum number of samplers                        |
 
 *Note: the specifier 'q' should be used for pack (signed long long in machine byte order)*
+
+### Control: interval
+
+Changing the interval option will effect subsequent ticks of the clock in every active sampler, and subsequently created samplers.
+
+### Control: arginfo
+
+Changing the arginfo option will effect all subsequently collected samples.
+
+### Control: samplers
+
+Changing the samplers option will effect the subsequent creation of samplers without effecting currently active samplers.
 
 ### Startup
 

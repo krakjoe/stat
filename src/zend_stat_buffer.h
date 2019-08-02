@@ -21,7 +21,7 @@
 
 typedef struct _zend_stat_buffer_t zend_stat_buffer_t;
 
-zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples, zend_long interval, zend_bool arginfo);
+zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples, zend_long interval, zend_bool arginfo, zend_long samplers);
 void zend_stat_buffer_shutdown(zend_stat_buffer_t *);
 
 void zend_stat_buffer_activate(zend_stat_buffer_t *buffer, pid_t pid);
@@ -39,4 +39,8 @@ zend_long zend_stat_buffer_interval_get(zend_stat_buffer_t *buffer);
 
 void zend_stat_buffer_arginfo_set(zend_stat_buffer_t *buffer, zend_bool arginfo);
 zend_bool zend_stat_buffer_arginfo_get(zend_stat_buffer_t *buffer);
+
+zend_bool zend_stat_buffer_samplers_add(zend_stat_buffer_t *buffer);
+void zend_stat_buffer_samplers_remove(zend_stat_buffer_t *buffer);
+void zend_stat_buffer_samplers_set(zend_stat_buffer_t *buffer, zend_long samplers);
 #endif	/* ZEND_STAT_BUFFER_H */

@@ -23,6 +23,7 @@
 #include "zend_stat_ini.h"
 
 zend_long    zend_stat_ini_samples   = -1;
+zend_long    zend_stat_ini_samplers  = -1;
 zend_long    zend_stat_ini_interval  = -1;
 zend_bool    zend_stat_ini_arginfo   = 0;
 zend_long    zend_stat_ini_strings   = -1;
@@ -50,6 +51,20 @@ static ZEND_INI_MH(zend_stat_ini_update_samples)
     }
 
     zend_stat_ini_samples =
+        zend_atol(
+            ZSTR_VAL(new_value),
+            ZSTR_LEN(new_value));
+
+    return SUCCESS;
+}
+
+static ZEND_INI_MH(zend_stat_ini_update_samplers)
+{
+    if (UNEXPECTED(zend_stat_ini_samplers != -1)) {
+        return FAILURE;
+    }
+
+    zend_stat_ini_samplers =
         zend_atol(
             ZSTR_VAL(new_value),
             ZSTR_LEN(new_value));
@@ -154,6 +169,7 @@ static ZEND_INI_MH(zend_stat_ini_update_dump)
 
 ZEND_INI_BEGIN()
     ZEND_INI_ENTRY("stat.samples",   "10000",             ZEND_INI_SYSTEM, zend_stat_ini_update_samples)
+    ZEND_INI_ENTRY("stat.samplers",  "0",                 ZEND_INI_SYSTEM, zend_stat_ini_update_samplers)
     ZEND_INI_ENTRY("stat.interval",  "100",               ZEND_INI_SYSTEM, zend_stat_ini_update_interval)
     ZEND_INI_ENTRY("stat.arginfo",   "Off",               ZEND_INI_SYSTEM, zend_stat_ini_update_arginfo)
     ZEND_INI_ENTRY("stat.strings",   "32M",               ZEND_INI_SYSTEM, zend_stat_ini_update_strings)
