@@ -57,9 +57,9 @@ typedef struct _zend_stat_io_buffer_t {
 } zend_stat_io_buffer_t;
 
 zend_bool zend_stat_io_buffer_alloc(zend_stat_io_buffer_t *buffer, zend_long size);
-zend_long zend_stat_io_buffer_append(zend_stat_io_buffer_t *buffer, const char *bytes, zend_long size);
-zend_long zend_stat_io_buffer_appends(zend_stat_io_buffer_t *buffer, zend_stat_string_t *string);
-zend_long zend_stat_io_buffer_appendf(zend_stat_io_buffer_t *buffer, char *format, ...);
+zend_bool zend_stat_io_buffer_append(zend_stat_io_buffer_t *buffer, const char *bytes, zend_long size);
+zend_bool zend_stat_io_buffer_appends(zend_stat_io_buffer_t *buffer, zend_stat_string_t *string);
+zend_bool zend_stat_io_buffer_appendf(zend_stat_io_buffer_t *buffer, char *format, ...);
 zend_bool zend_stat_io_buffer_flush(zend_stat_io_buffer_t *buffer, int fd);
 void zend_stat_io_buffer_free(zend_stat_io_buffer_t *buffer);
 

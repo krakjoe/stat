@@ -219,7 +219,7 @@ zend_bool zend_stat_io_buffer_alloc(zend_stat_io_buffer_t *buffer, zend_long siz
     return 1;
 }
 
-zend_long zend_stat_io_buffer_append(zend_stat_io_buffer_t *buffer, const char *bytes, zend_long size) {
+zend_bool zend_stat_io_buffer_append(zend_stat_io_buffer_t *buffer, const char *bytes, zend_long size) {
     zend_long used = buffer->used;
 
     if (UNEXPECTED((used + size) > buffer->size)) {
@@ -229,22 +229,22 @@ zend_long zend_stat_io_buffer_append(zend_stat_io_buffer_t *buffer, const char *
                 buffer->buf, buffer->size);
 
         if (UNEXPECTED(NULL == buffer->buf)) {
-            return FAILURE;
+            return 0;
         }
     }
 
     memcpy(
-        &buffer->buf[buffer->used], bytes, size);
+        &buffer->buf[used], bytes, size);
     buffer->used += size;
 
-    return buffer->used - used;
+    return 1;
 }
 
-zend_long zend_stat_io_buffer_appends(zend_stat_io_buffer_t *buffer, zend_stat_string_t *string) {
+zend_bool zend_stat_io_buffer_appends(zend_stat_io_buffer_t *buffer, zend_stat_string_t *string) {
     return zend_stat_io_buffer_append(buffer, string->value, string->length);
 }
 
-zend_long zend_stat_io_buffer_appendf(zend_stat_io_buffer_t *buffer, char *format, ...) {
+zend_bool zend_stat_io_buffer_appendf(zend_stat_io_buffer_t *buffer, char *format, ...) {
     char *formatted = NULL;
     int   bytes;
     va_list args;
@@ -254,7 +254,7 @@ zend_long zend_stat_io_buffer_appendf(zend_stat_io_buffer_t *buffer, char *forma
     va_end(args);
 
     if (EXPECTED((bytes != FAILURE) && (NULL != formatted))) {
-        zend_long result =
+        zend_bool result =
             zend_stat_io_buffer_append(
                 buffer, formatted, bytes);
         free(formatted);
