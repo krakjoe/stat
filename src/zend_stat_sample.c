@@ -88,10 +88,13 @@ zend_bool zend_stat_sample_write(zend_stat_sample_t *sample, int fd) {
             zend_stat_io_write_int_ex(fd, sample->location.line, return 0);
         }
 
-        zend_stat_io_write_literal_ex(fd, ", \"offset\": ", return 0);
-        zend_stat_io_write_int_ex(fd, sample->location.offset, return 0);
+        if (sample->location.offset) {
+            zend_stat_io_write_literal_ex(fd, ", \"offset\": ", return 0);
+            zend_stat_io_write_int_ex(fd, sample->location.offset, return 0);
+        }
 
-        if (sample->location.opcode <= ZEND_VM_LAST_OPCODE) {
+        if ((sample->location.opcode > 0) &&
+            (sample->location.opcode <= ZEND_VM_LAST_OPCODE)) {
             zend_stat_io_write_literal_ex(fd, ", \"opcode\": \"", return 0);
             zend_stat_io_write_string_ex(fd,
                 zend_stat_string_opcode(sample->location.opcode), return 0);

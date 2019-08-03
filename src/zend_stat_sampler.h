@@ -35,9 +35,7 @@ typedef struct _zend_stat_sampler_t {
     } timer;
     struct {
         HashTable       strings;
-#ifdef ZEND_ACC_IMMUTABLE
         HashTable       symbols;
-#endif
     } cache;
     zend_bool           arginfo;
     zend_stat_buffer_t *buffer;
