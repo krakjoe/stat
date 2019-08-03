@@ -50,18 +50,22 @@ struct _zend_stat_io_t {
     zend_stat_io_routine_t  *routine;
 };
 
-zend_bool zend_stat_io_write(int fd, char *message, size_t length);
-zend_bool zend_stat_io_write_string(int fd, zend_stat_string_t *string);
-zend_bool zend_stat_io_write_int(int fd, zend_long num);
-zend_bool zend_stat_io_write_double(int fd, double num);
+typedef struct _zend_stat_io_buffer_t {
+    char *buf;
+    zend_long size;
+    zend_long used;
+} zend_stat_io_buffer_t;
 
-#define zend_stat_io_write_ex(s, v, l, a) if (!zend_stat_io_write(s, v, l)) a
-#define zend_stat_io_write_string_ex(s, v, a) if (!zend_stat_io_write_string(s, v)) a
-#define zend_stat_io_write_int_ex(s, i, a) if (!zend_stat_io_write_int(s, i)) a
-#define zend_stat_io_write_double_ex(s, d, a) if (!zend_stat_io_write_double(s, d)) a
-#define zend_stat_io_write_literal_ex(s, v, a) if (!zend_stat_io_write(s, v, sizeof(v)-1)) a
+zend_bool zend_stat_io_buffer_alloc(zend_stat_io_buffer_t *buffer, zend_long size);
+zend_long zend_stat_io_buffer_append(zend_stat_io_buffer_t *buffer, const char *bytes, zend_long size);
+zend_long zend_stat_io_buffer_appends(zend_stat_io_buffer_t *buffer, zend_stat_string_t *string);
+zend_long zend_stat_io_buffer_appendf(zend_stat_io_buffer_t *buffer, char *format, ...);
+zend_bool zend_stat_io_buffer_flush(zend_stat_io_buffer_t *buffer, int fd);
+void zend_stat_io_buffer_free(zend_stat_io_buffer_t *buffer);
 
 zend_bool zend_stat_io_startup(zend_stat_io_t *io, char *uri, zend_stat_buffer_t *buffer, zend_stat_io_routine_t *routine);
 zend_bool zend_stat_io_closed(zend_stat_io_t *io);
 void zend_stat_io_shutdown(zend_stat_io_t *io);
+
+zend_bool zend_stat_io_write(int fd, char *message, size_t length);
 #endif	/* ZEND_STAT_IO_H */

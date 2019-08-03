@@ -204,26 +204,82 @@ zend_bool zend_stat_io_write(int fd, char *message, size_t length) {
     return 1;
 }
 
-zend_bool zend_stat_io_write_string(int fd, zend_stat_string_t *string) {
-    return zend_stat_io_write(fd, string->value, string->length);
+zend_bool zend_stat_io_buffer_alloc(zend_stat_io_buffer_t *buffer, zend_long size) {
+    memset(buffer, 0, sizeof(buffer));
+
+    buffer->buf = calloc(sizeof(char), size);
+
+    if (!buffer->buf) {
+        return 0;
+    }
+
+    buffer->size = size;
+    buffer->used = 0;
+
+    return 1;
 }
 
-zend_bool zend_stat_io_write_int(int fd, zend_long num) {
-    char intbuf[128];
+zend_long zend_stat_io_buffer_append(zend_stat_io_buffer_t *buffer, const char *bytes, zend_long size) {
+    zend_long used = buffer->used;
 
-    sprintf(
-        intbuf, ZEND_LONG_FMT, num);
+    if (UNEXPECTED((used + size) > buffer->size)) {
+        buffer->size *= 2;
+        buffer->buf =
+            realloc(
+                buffer->buf, buffer->size);
 
-    return zend_stat_io_write(fd, intbuf, strlen(intbuf));
+        if (UNEXPECTED(NULL == buffer->buf)) {
+            return FAILURE;
+        }
+    }
+
+    memcpy(
+        &buffer->buf[buffer->used], bytes, size);
+    buffer->used += size;
+
+    return buffer->used - used;
 }
 
-zend_bool zend_stat_io_write_double(int fd, double num) {
-    char dblbuf[128];
+zend_long zend_stat_io_buffer_appends(zend_stat_io_buffer_t *buffer, zend_stat_string_t *string) {
+    return zend_stat_io_buffer_append(buffer, string->value, string->length);
+}
 
-    sprintf(
-        dblbuf, "%.10f", num);
+zend_long zend_stat_io_buffer_appendf(zend_stat_io_buffer_t *buffer, char *format, ...) {
+    char *formatted = NULL;
+    int   bytes;
+    va_list args;
 
-    return zend_stat_io_write(fd, dblbuf, strlen(dblbuf));
+    va_start(args, format);
+    bytes = vasprintf(&formatted, format, args);
+    va_end(args);
+
+    if (EXPECTED((bytes != FAILURE) && (NULL != formatted))) {
+        zend_long result =
+            zend_stat_io_buffer_append(
+                buffer, formatted, bytes);
+        free(formatted);
+        return result;
+    }
+
+    return FAILURE;
+}
+
+zend_bool zend_stat_io_buffer_flush(zend_stat_io_buffer_t *buffer, int fd) {
+    if (UNEXPECTED(!zend_stat_io_write(fd, buffer->buf, buffer->used))) {
+        zend_stat_io_buffer_free(buffer);
+        return 0;
+    }
+
+    zend_stat_io_buffer_free(buffer);
+    return 1;
+}
+
+void zend_stat_io_buffer_free(zend_stat_io_buffer_t *buffer) {
+    if (buffer->buf) {
+        free(buffer->buf);
+    }
+
+    memset(buffer, 0, sizeof(buffer));
 }
 
 static void* zend_stat_io_thread(zend_stat_io_t *io) {
