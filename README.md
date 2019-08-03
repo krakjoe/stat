@@ -61,6 +61,7 @@ Upon connection, stat will stream the ring buffer with each sample on a new line
         "request": {
             "pid": int,
             "elapsed": double,
+            "path": "string",
             "method": "string",
             "uri": "string"
         },

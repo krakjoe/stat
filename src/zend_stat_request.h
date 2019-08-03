@@ -24,15 +24,19 @@
 typedef struct _zend_stat_request_t {
     pid_t               pid;
     double              elapsed;
+    zend_stat_string_t *path;
     zend_stat_string_t *method;
     zend_stat_string_t *uri;
-
 } zend_stat_request_t;
 
 zend_bool zend_stat_request_create(zend_stat_request_t *request);
 
 static zend_always_inline void zend_stat_request_copy(zend_stat_request_t *dest, zend_stat_request_t *src) {
     memcpy(dest, src, sizeof(zend_stat_request_t));
+
+    if (dest->path) {
+        dest->path = zend_stat_string_copy(dest->path);
+    }
 
     if (dest->method) {
         dest->method = zend_stat_string_copy(dest->method);
@@ -44,6 +48,10 @@ static zend_always_inline void zend_stat_request_copy(zend_stat_request_t *dest,
 }
 
 static zend_always_inline void zend_stat_request_release(zend_stat_request_t *request) {
+    if (request->path) {
+        zend_stat_string_release(request->path);
+    }
+    
     if (request->method) {
         zend_stat_string_release(request->method);
     }

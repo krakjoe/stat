@@ -31,25 +31,34 @@ typedef struct _zend_stat_sample_state_t {
     zend_bool                used;
 } zend_stat_sample_state_t;
 
+typedef struct _zend_stat_sample_memory_t {
+    size_t used;
+    size_t peak;
+} zend_stat_sample_memory_t;
+
+typedef struct _zend_stat_sample_symbol_t {
+    zend_stat_string_t  *file;
+    zend_stat_string_t  *scope;
+    zend_stat_string_t  *function;
+} zend_stat_sample_symbol_t;
+
+typedef struct _zend_stat_sample_opline_t {
+    uint32_t             line;
+    uint32_t             offset;
+    zend_uchar           opcode;
+} zend_stat_sample_opline_t;
+
 typedef struct _zend_stat_sample_t {
-    zend_stat_sample_state_t state;
-    zend_uchar               type;
-    zend_stat_request_t      request;
-    double                   elapsed;
-    struct {
-        size_t               used;
-        size_t               peak;
-    } memory;
-    struct {
-        zend_stat_string_t  *file;
-        uint32_t             line;
-        uint32_t             offset;
-        zend_uchar           opcode;
+    zend_stat_sample_state_t  state;
+    zend_uchar                type;
+    zend_stat_request_t       request;
+    double                    elapsed;
+    zend_stat_sample_memory_t memory;
+    union {
+        zend_stat_sample_opline_t opline;
+        zend_stat_sample_symbol_t caller;
     } location;
-    struct {
-        zend_stat_string_t  *scope;
-        zend_stat_string_t  *function;
-    } symbol;
+    zend_stat_sample_symbol_t symbol;
     struct {
         uint32_t             length;
         zval                 info[ZEND_STAT_SAMPLE_MAX_ARGINFO];
@@ -67,7 +76,14 @@ typedef struct _zend_stat_sample_t {
     (sizeof(zend_stat_sample_t) - XtOffsetOf(zend_stat_sample_t, type))
 
 const static zend_stat_sample_t zend_stat_sample_empty = {
-    {0, 0}, ZEND_STAT_SAMPLE_UNUSED, {0}, 0, {0, 0}, {NULL, 0}, {NULL, NULL}
+    .type = ZEND_STAT_SAMPLE_UNUSED,
+    .state = {0, 0},
+    .request = {0},
+    .elapsed = 0.0,
+    .memory = {0, 0},
+    .location = {0},
+    .symbol = {NULL, NULL, NULL},
+    .arginfo.length = 0
 };
 
 zend_bool zend_stat_sample_write(zend_stat_sample_t *sample, int fd);

@@ -181,6 +181,10 @@ static void zend_stat_activate(void) {
 }
 
 static void zend_stat_deactivate(void) {
+    if (0 == zend_stat_started) {
+        return;
+    }
+
     zend_stat_sampler_deactivate(&zend_stat_sampler);
 
     zend_stat_buffer_samplers_remove(zend_stat_buffer);

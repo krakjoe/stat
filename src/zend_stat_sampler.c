@@ -237,11 +237,11 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
     }
 
     if (function.type == ZEND_USER_FUNCTION) {
-        sample.location.file       =
+        sample.symbol.file =
             zend_stat_sampler_read_string(
                 sampler, function.op_array.filename);
 
-        if (UNEXPECTED(NULL == sample.location.file)) {
+        if (UNEXPECTED(NULL == sample.symbol.file)) {
             sample.type = ZEND_STAT_SAMPLE_MEMORY;
 
             memset(&sample.arginfo,  0, sizeof(sample.arginfo));
@@ -250,33 +250,46 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
         }
 
         sample.type                = ZEND_STAT_SAMPLE_USER;
-        sample.location.opcode     = opline.opcode;
+        sample.location.opline.opcode     = opline.opcode;
         if (EXPECTED(!zend_stat_sample_unlined(opline.opcode))) {
-            sample.location.line   = opline.lineno;
+            sample.location.opline.line   = opline.lineno;
         }
-        sample.location.offset     = frame.opline - function.op_array.opcodes;
+        sample.location.opline.offset     = frame.opline - function.op_array.opcodes;
     } else {
-        zend_execute_data prev;
-        zend_function pfunc;
+        zend_execute_data pframe;
+        zend_function     pfunc;
 
         sample.type = ZEND_STAT_SAMPLE_INTERNAL;
 
         while (zend_stat_sampler_read(sampler,
                 frame.prev_execute_data,
-                &prev, sizeof(zend_execute_data)) == SUCCESS) {
+                &pframe, sizeof(zend_execute_data)) == SUCCESS) {
             if (EXPECTED(zend_stat_sampler_read_symbol(sampler,
-                    prev.func, &pfunc) == SUCCESS)) {
+                    pframe.func, &pfunc) == SUCCESS)) {
                 if (pfunc.type == ZEND_USER_FUNCTION) {
-                    sample.location.file =
+                    sample.location.caller.file =
                             zend_stat_sampler_read_string(
                                 sampler, pfunc.op_array.filename);
-                    /* can't read line number, likely the vm moved on */
+
+                    if (pfunc.op_array.scope) {
+                        sample.location.caller.scope = 
+                            zend_stat_sampler_read_string_at(
+                                sampler,
+                                pfunc.op_array.scope,
+                                XtOffsetOf(zend_class_entry, name));
+                        if (UNEXPECTED(NULL == sample.location.caller.scope)) {
+                            break;
+                        }
+                    }
+
+                    sample.location.caller.function = 
+                        zend_stat_sampler_read_string(sampler, pfunc.op_array.function_name);
                     break;
                 }
             } else {
                 break;
             }
-            frame = prev;
+            frame = pframe;
         }
     }
 
@@ -300,14 +313,6 @@ static zend_always_inline void zend_stat_sample(zend_stat_sampler_t *sampler) {
     sample.symbol.function =
         zend_stat_sampler_read_string(
             sampler, function.common.function_name);
-
-    if (UNEXPECTED(NULL == sample.symbol.function)) {
-        sample.type = ZEND_STAT_SAMPLE_MEMORY;
-
-        memset(&sample.location, 0, sizeof(sample.location));
-        memset(&sample.arginfo,  0, sizeof(sample.arginfo));
-        memset(&sample.symbol,   0, sizeof(sample.symbol));
-    }
 
 _zend_stat_sample_finish:
     /* This is just a memcpy and some adds,

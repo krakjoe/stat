@@ -37,6 +37,18 @@ zend_bool zend_stat_request_create(zend_stat_request_t *request) {
 
     request->elapsed = zend_stat_time();
 
+    if (EXPECTED(ri->path_translated)) {
+        request->path =
+            zend_stat_string_temporary(
+                ri->path_translated, strlen(ri->path_translated));
+
+        if (UNEXPECTED(NULL == request->path)) {
+            zend_stat_request_release(request);
+
+            return 0;
+        }
+    }
+
     if (EXPECTED(ri->request_method)) {
         request->method =
             zend_stat_string_temporary(
