@@ -213,6 +213,102 @@ static zend_bool zend_stat_sample_write_opline(zend_stat_io_buffer_t *iob, zend_
     return 1;
 }
 
+zend_bool zend_stat_sample_write_arginfo(zend_stat_io_buffer_t *iob, zend_stat_sample_arginfo_t *arginfo) {
+    zval *it = arginfo->info,
+         *end = it + arginfo->length;
+    if (0 == arginfo->length) {
+        return 1;
+    }
+
+    if (!zend_stat_io_buffer_append(iob, ", \"arginfo\": [", sizeof(", \"arginfo\": [")-1)) {
+        return 0;
+    }
+
+    while (it < end) {
+        if (!zend_stat_io_buffer_append(iob, "\"", sizeof("\"")-1)) {
+            return 0;
+        }
+
+        switch (Z_TYPE_P(it)) {
+            case IS_UNDEF:
+            case IS_NULL:
+                if (!zend_stat_io_buffer_append(iob, "null", sizeof("null")-1)) {
+                    return 0;
+                }
+            break;
+
+            case IS_REFERENCE:
+                if (!zend_stat_io_buffer_append(iob, "reference", sizeof("reference")-1)) {
+                    return 0;
+                }
+            break;
+
+            case IS_DOUBLE:
+                if (!zend_stat_io_buffer_appendf(iob, "float(%.10f)", Z_DVAL_P(it))) {
+                    return 0;
+                }
+            break;
+
+            case IS_LONG:
+                if (!zend_stat_io_buffer_appendf(iob, "int(%.10f)", Z_LVAL_P(it))) {
+                    return 0;
+                }
+            break;
+
+            case IS_TRUE:
+            case IS_FALSE:
+                if (!zend_stat_io_buffer_appendf(iob, "bool(%s)", zend_is_true(it) ? "true" : "false")) {
+                    return 0;
+                }
+            break;
+
+            case IS_STRING:
+                if (!zend_stat_io_buffer_append(iob, "string", sizeof("string")-1)) {
+                    return 0;
+                }
+            break;
+
+            case IS_OBJECT:
+                if (!zend_stat_io_buffer_append(iob, "object", sizeof("object")-1)) {
+                    return 0;
+                }
+            break;
+
+            case IS_RESOURCE:
+                if (!zend_stat_io_buffer_append(iob, "resource", sizeof("resource")-1)) {
+                    return 0;
+                }
+            break;
+
+            default: {
+                const char *type = zend_get_type_by_const(Z_TYPE_P(it));
+
+                if (EXPECTED(type)) {
+                    if (!zend_stat_io_buffer_append(iob, type, strlen(type))) {
+                        return 0;
+                    }
+                }
+            }
+        }
+        if (!zend_stat_io_buffer_append(iob, "\"", sizeof("\"")-1)) {
+            return 0;
+        }
+        it++;
+
+        if (it < end) {
+            if (!zend_stat_io_buffer_append(iob, ",", sizeof(",")-1)) {
+                return 0;
+            }
+        }
+    }
+
+    if (!zend_stat_io_buffer_append(iob, "]", sizeof("]")-1)) {
+        return 0;
+    }
+
+    return 1;
+}
+
 zend_bool zend_stat_sample_write(zend_stat_sample_t *sample, int fd) {
     zend_stat_io_buffer_t iob;
 
@@ -251,75 +347,9 @@ zend_bool zend_stat_sample_write(zend_stat_sample_t *sample, int fd) {
         goto _zend_stat_sample_write_abort;
     }
 
-#if 0
-    if (sample->arginfo.length) {
-        zval *it = sample->arginfo.info,
-             *end = it + sample->arginfo.length;
-
-        zend_stat_io_write_literal_ex(fd, ", \"arginfo\": [", return 0);
-
-        while (it < end) {
-            zend_stat_io_write_literal_ex(fd, "\"", return 0);
-            switch (Z_TYPE_P(it)) {
-                case IS_UNDEF:
-                case IS_NULL:
-                    zend_stat_io_write_literal_ex(fd, "null", return 0);
-                break;
-
-                case IS_REFERENCE:
-                    zend_stat_io_write_literal_ex(fd, "reference", return 0);
-                break;
-
-                case IS_DOUBLE:
-                    zend_stat_io_write_literal_ex(fd, "float(", return 0);
-                    zend_stat_io_write_double_ex(fd, Z_DVAL_P(it), return 0);
-                    zend_stat_io_write_literal_ex(fd, ")", return 0);
-                break;
-
-                case IS_LONG:
-                    zend_stat_io_write_literal_ex(fd, "int(", return 0);
-                    zend_stat_io_write_int_ex(fd, Z_LVAL_P(it), return 0);
-                    zend_stat_io_write_literal_ex(fd, ")", return 0);
-                break;
-
-                case IS_TRUE:
-                case IS_FALSE:
-                    zend_stat_io_write_literal_ex(fd, "bool(", return 0);
-                    zend_stat_io_write_int_ex(fd, zend_is_true(it), return 0);
-                    zend_stat_io_write_literal_ex(fd, ")", return 0);
-                break;
-
-                case IS_STRING:
-                    zend_stat_io_write_literal_ex(fd, "string", return 0);
-                break;
-
-                case IS_OBJECT:
-                    zend_stat_io_write_literal_ex(fd, "object", return 0);
-                break;
-
-                case IS_RESOURCE:
-                    zend_stat_io_write_literal_ex(fd, "resource", return 0);
-                break;
-
-                default: {
-                    const char *type = zend_get_type_by_const(Z_TYPE_P(it));
-
-                    if (EXPECTED(type)) {
-                        zend_stat_io_write_ex(fd,
-                            (char*) type, strlen(type), return 0);
-                    }
-                }
-            }
-            zend_stat_io_write_literal_ex(fd, "\"", return 0);
-            it++;
-
-            if (it < end) {
-                zend_stat_io_write_literal_ex(fd, ",", return 0);
-            }
-        }
-        zend_stat_io_write_literal_ex(fd, "]", return 0);
+    if (!zend_stat_sample_write_arginfo(&iob, &sample->arginfo)) {
+        goto _zend_stat_sample_write_abort;
     }
-#endif
 
     if (sample->type == ZEND_STAT_SAMPLE_USER) {
         if (!zend_stat_sample_write_opline(&iob, &sample->location.opline)) {

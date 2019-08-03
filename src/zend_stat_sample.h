@@ -48,6 +48,11 @@ typedef struct _zend_stat_sample_opline_t {
     zend_uchar           opcode;
 } zend_stat_sample_opline_t;
 
+typedef struct _zend_stat_sample_arginfo_t {
+    uint32_t             length;
+    zval                 info[ZEND_STAT_SAMPLE_MAX_ARGINFO];
+} zend_stat_sample_arginfo_t;
+
 typedef struct _zend_stat_sample_t {
     zend_stat_sample_state_t  state;
     zend_uchar                type;
@@ -59,10 +64,7 @@ typedef struct _zend_stat_sample_t {
         zend_stat_sample_symbol_t caller;
     } location;
     zend_stat_sample_symbol_t symbol;
-    struct {
-        uint32_t             length;
-        zval                 info[ZEND_STAT_SAMPLE_MAX_ARGINFO];
-    } arginfo;
+    zend_stat_sample_arginfo_t arginfo;
 } zend_stat_sample_t;
 
 #define ZEND_STAT_SAMPLE_UNUSED   0
