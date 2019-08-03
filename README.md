@@ -54,7 +54,8 @@ Stat can stream over a unix or TCP socket, the following are valid examples:
 
 *Note: If the scheme is omitted, the scheme is assumed to be unix*
 
-Upon connection, stat will stream the ring buffer with each sample on a new line, encoded as json with the following prettified format:
+Upon connection, stat will stream the ring buffer with each sample on a new line, encoded as json with the following schema:
+
 
     {
         "type": "string",
@@ -69,12 +70,6 @@ Upon connection, stat will stream the ring buffer with each sample on a new line
         "memory": {
             "used": int,
             "peak": int
-        },
-        "location": {
-            "file":  "string",
-            "line":  int,
-            "offset": int,
-            "opcode": "string"
         },
         "symbol": {
             "scope": "string",

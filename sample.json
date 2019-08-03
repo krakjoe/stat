@@ -1,0 +1,186 @@
+{
+  "definitions": {},
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://gitub.com/krakjoe/stat/sample.json",
+  "type": "object",
+  "title": "Sample Schema",
+  "required": [
+    "type",
+    "request",
+    "elapsed",
+    "memory"
+  ],
+  "properties": {
+    "type": {
+      "$id": "#/properties/type",
+      "type": "string",
+      "title": "Sample Type",
+      "default": "",
+      "examples": [
+        "memory",
+        "internal",
+        "user"
+      ],
+      "pattern": "^(memory|internal|user)$"
+    },
+    "request": {
+      "$id": "#/properties/request",
+      "type": "object",
+      "title": "Request",
+      "required": [
+        "pid",
+        "elapsed"
+      ],
+      "properties": {
+        "pid": {
+          "$id": "#/properties/request/properties/pid",
+          "type": "integer",
+          "title": "The Process ID"
+        },
+        "elapsed": {
+          "$id": "#/properties/request/properties/elapsed",
+          "type": "number",
+          "title": "Time"
+        },
+        "path": {
+          "$id": "#/properties/request/properties/path",
+          "type": "string",
+          "title": "The Translated Path",
+          "examples": [
+            "/var/www/html/index.php"
+          ],
+          "pattern": "^(.*)$"
+        },
+        "method": {
+          "$id": "#/properties/request/properties/method",
+          "type": "string",
+          "title": "Request Method",
+          "examples": [
+            "POST",
+            "GET",
+            "PUT",
+            "PATCH"
+          ],
+          "pattern": "^(.*)$"
+        },
+        "uri": {
+          "$id": "#/properties/request/properties/uri",
+          "type": "string",
+          "title": "Request URI",
+          "examples": [
+            "/index.php"
+          ],
+          "pattern": "^(.*)$"
+        }
+      }
+    },
+    "elapsed": {
+      "$id": "#/properties/elapsed",
+      "type": "number",
+      "title": "Time"
+    },
+    "memory": {
+      "$id": "#/properties/memory",
+      "type": "object",
+      "title": "Memory Usage",
+      "required": [
+        "used",
+        "peak"
+      ],
+      "properties": {
+        "used": {
+          "$id": "#/properties/memory/properties/used",
+          "type": "integer",
+          "title": "Used Memory"
+        },
+        "peak": {
+          "$id": "#/properties/memory/properties/peak",
+          "type": "integer",
+          "title": "Peak Used Memory"
+        }
+      }
+    },
+    "symbol": {
+      "$id": "#/properties/symbol",
+      "type": "object",
+      "title": "Symbol",
+      "required": [
+        "file"
+      ],
+      "properties": {
+        "file": {
+          "$id": "#/properties/symbol/properties/file",
+          "type": "string",
+          "title": "File Name",
+          "pattern": "^(.*)$"
+        },
+        "scope": {
+          "$id": "#/properties/symbol/properties/scope",
+          "type": "string",
+          "title": "Class Name",
+          "pattern": "^(.*)$"
+        },
+        "function": {
+          "$id": "#/properties/symbol/properties/function",
+          "type": "string",
+          "title": "Function Name",
+          "pattern": "^(.*)$"
+        }
+      }
+    },
+    "opline": {
+      "$id": "#/properties/opline",
+      "type": "object",
+      "title": "The Opline Schema",
+      "required": [
+        "offset"
+      ],
+      "properties": {
+        "offset": {
+          "$id": "#/properties/opline/properties/offset",
+          "type": "integer",
+          "title": "Instruction Offset"
+        },
+        "line": {
+          "$id": "#/properties/opline/properties/line",
+          "type": "integer",
+          "title": "Line Number"
+        },
+        "opcode": {
+          "$id": "#/properties/opline/properties/opcode",
+          "type": "string",
+          "title": "Opcode Name",
+          "pattern": "^(.*)$"
+        }
+      }
+    },
+    "caller": {
+      "$id": "#/properties/caller",
+      "type": "object",
+      "title": "Caller",
+      "required": [
+        "file"
+      ],
+      "properties": {
+        "file": {
+          "$id": "#/properties/caller/properties/file",
+          "type": "string",
+          "title": "File Name",
+          "pattern": "^(.*)$"
+        },
+        "scope": {
+          "$id": "#/properties/caller/properties/scope",
+          "type": "string",
+          "title": "Class Name",
+          "pattern": "^(.*)$"
+        },
+        "function": {
+          "$id": "#/properties/caller/properties/function",
+          "type": "string",
+          "title": "Function Name",
+          "pattern": "^(.*)$"
+        }
+      }
+    }
+  }
+}
