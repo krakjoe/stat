@@ -22,13 +22,17 @@
 #include "zend_stat.h"
 #include "zend_stat_arena.h"
 
+#ifndef ZEND_STAT_ARENA_DEBUG
+# define ZEND_STAT_ARENA_DEBUG 0
+#endif
+
 typedef struct _zend_stat_arena_block_t zend_stat_arena_block_t;
 
 typedef intptr_t zend_stat_arena_ptr_t;
 
 struct _zend_stat_arena_block_t {
     zend_long                    size;
-    zend_bool                    used;
+    zend_long                    used;
     zend_stat_arena_block_t     *next;
     zend_stat_arena_ptr_t        mem[1];
 };
@@ -70,7 +74,6 @@ static zend_always_inline zend_stat_arena_block_t* zend_stat_arena_find(zend_sta
     while (NULL != block) {
         if ((0 == block->used)) {
             if ((block->size >= size)) {
-                block->used = 1;
                 goto _zend_stat_arena_found;
             } else {
                 if (NULL != block->next) {
@@ -78,7 +81,6 @@ static zend_always_inline zend_stat_arena_block_t* zend_stat_arena_find(zend_sta
                         ((block->size + block->next->size) >= size)) {
                         block->size += block->next->size;
                         block->next = block->next->next;
-                        block->used = 1;
                         goto _zend_stat_arena_found;
                     }
                 }
@@ -91,8 +93,7 @@ static zend_always_inline zend_stat_arena_block_t* zend_stat_arena_find(zend_sta
     return NULL;
 
 _zend_stat_arena_found:
-    if ((NULL != block) &&
-        ((wasted = (block->size - size)) > 0)) {
+    if (((wasted = (block->size - size)) > 0)) {
         if ((wasted > ZEND_STAT_ARENA_BLOCK_MIN)) {
             zend_stat_arena_block_t *reclaim =
                 (zend_stat_arena_block_t*)
@@ -108,6 +109,7 @@ _zend_stat_arena_found:
 
         block->size = size;
     }
+    block->used = size;
 
     return block;
 }
@@ -175,8 +177,8 @@ void* zend_stat_arena_alloc(zend_stat_arena_t *arena, zend_long size) {
         goto _zend_stat_arena_alloc_oom;
     }
 
-    block->used = 1;
-    block->size = aligned;
+    block->used =
+        block->size = aligned;
 
     if (UNEXPECTED(NULL == arena->list.start)) {
         arena->list.start = block;
@@ -199,7 +201,7 @@ _zend_stat_arena_alloc_oom:
     return NULL;
 }
 
-#ifdef ZEND_DEBUG
+#if ZEND_STAT_ARENA_DEBUG
 static zend_always_inline zend_bool zend_stat_arena_owns(zend_stat_arena_t *arena, void *mem) {
     if (UNEXPECTED((((char*) mem) < ((char*) arena)) || (((char*) mem) > arena->end))) {
         return 0;
@@ -212,7 +214,7 @@ static zend_always_inline zend_bool zend_stat_arena_owns(zend_stat_arena_t *aren
 void zend_stat_arena_free(zend_stat_arena_t *arena, void *mem) {
     zend_stat_arena_block_t *block = zend_stat_arena_block(mem);
 
-#ifdef ZEND_DEBUG
+#if ZEND_STAT_ARENA_DEBUG
     ZEND_ASSERT(zend_stat_arena_owns(arena, mem));
 #endif
 
@@ -239,18 +241,25 @@ void zend_stat_arena_free(zend_stat_arena_t *arena, void *mem) {
     pthread_mutex_unlock(&arena->mutex);
 }
 
-#ifdef ZEND_DEBUG
+#if ZEND_STAT_ARENA_DEBUG
 static zend_always_inline void zend_stat_arena_debug(zend_stat_arena_t *arena) {
     zend_stat_arena_block_t *block = arena->list.start;
+    zend_long wasted = 0;
 
     while (NULL != block) {
-        if (block->used) {
+        if (block->used > 0) {
+            wasted += block->size - block->used;
+        }
+
+        if (block->used > 0) {
             fprintf(stderr,
-                "[STAT] %p leaked "ZEND_LONG_FMT" bytes\n",
-                block->mem, block->size);
+                "[STAT] %p leaked %p "ZEND_LONG_FMT" bytes\n",
+                arena, block->mem, block->size);
         }
         block = block->next;
     }
+
+    fprintf(stderr, "[STAT] %p wasted "ZEND_LONG_FMT" bytes\n", arena, wasted);
 }
 #endif
 
@@ -259,7 +268,7 @@ void zend_stat_arena_destroy(zend_stat_arena_t *arena) {
         return;
     }
 
-#ifdef ZEND_DEBUG
+#if ZEND_STAT_ARENA_DEBUG
     zend_stat_arena_debug(arena);
 #endif
 

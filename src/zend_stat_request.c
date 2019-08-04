@@ -29,12 +29,7 @@ zend_bool zend_stat_request_create(zend_stat_request_t *request) {
 
     memset(request, 0, sizeof(zend_stat_request_t));
 
-#ifdef ZTS
-    request->pid = syscall(SYS_gettid);
-#else
-    request->pid = getpid();
-#endif
-
+    request->pid     = zend_stat_pid();
     request->elapsed = zend_stat_time();
 
     if (EXPECTED(ri->path_translated)) {

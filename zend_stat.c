@@ -42,6 +42,7 @@
 #include "zend_stat_stream.h"
 #include "zend_stat_strings.h"
 
+static pid_t                   zend_stat_main = 0;
 static zend_stat_buffer_t*     zend_stat_buffer = NULL;
 static zend_stat_io_t          zend_stat_stream;
 static zend_stat_io_t          zend_stat_control;
@@ -132,6 +133,7 @@ static int zend_stat_startup(zend_extension *ze) {
     }
 
     zend_stat_started = zend_stat_time();
+    zend_stat_main    = zend_stat_pid();
 
     ze->handle = 0;
 
@@ -140,6 +142,10 @@ static int zend_stat_startup(zend_extension *ze) {
 
 static void zend_stat_shutdown(zend_extension *ze) {
     if (0 == zend_stat_started) {
+        return;
+    }
+
+    if (zend_stat_pid() != zend_stat_main) {
         return;
     }
 
