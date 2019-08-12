@@ -237,7 +237,7 @@ zend_stat_string_t* zend_stat_string_temporary(const char *value, size_t length)
         return NULL;
     }
 
-    memset(temporary, size, 0);
+    memset(temporary, 0, size);
 
     temporary->u.type = ZEND_STAT_STRING_TEMPORARY;
     temporary->u.refcount = 1;
@@ -265,8 +265,6 @@ zend_stat_string_t* zend_stat_string_copy(zend_stat_string_t *string) {
 }
 
 void zend_stat_string_release(zend_stat_string_t *string) {
-    uint32_t rc;
-
     if (UNEXPECTED(__atomic_load_n(&string->u.type, __ATOMIC_SEQ_CST) == ZEND_STAT_STRING_PERSISTENT)) {
         return;
     }

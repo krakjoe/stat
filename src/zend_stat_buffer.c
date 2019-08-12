@@ -24,19 +24,12 @@
 #include "zend_stat_io.h"
 
 struct _zend_stat_buffer_t {
-    struct {
-        zend_ulong interval;
-        zend_bool  arginfo;
-        zend_ulong samplers;
-    } options;
-
     zend_stat_sample_t *samples;
     zend_stat_sample_t *position;
     zend_stat_sample_t *it;
     zend_stat_sample_t *end;
     zend_ulong max;
     zend_ulong used;
-    zend_ulong samplers;
 };
 
 static size_t zend_always_inline zend_stat_buffer_size(zend_long samples) {
@@ -44,7 +37,7 @@ static size_t zend_always_inline zend_stat_buffer_size(zend_long samples) {
                   (samples * sizeof(zend_stat_sample_t));
 }
 
-zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples, zend_long interval, zend_bool arginfo, zend_long samplers) {
+zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples) {
     size_t size = zend_stat_buffer_size(samples);
     zend_stat_buffer_t *buffer = zend_stat_map(size);
 
@@ -63,10 +56,6 @@ zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples, zend_long interv
     buffer->max       = samples;
     buffer->used      = 0;
     buffer->end       = buffer->position + buffer->max;
-
-    buffer->options.interval  = interval * 1000;
-    buffer->options.arginfo   = arginfo;
-    buffer->options.samplers  = samplers;
 
     memset(buffer->samples, 0, sizeof(zend_stat_sample_t) * buffer->max);
 
@@ -122,15 +111,15 @@ void zend_stat_buffer_insert(zend_stat_buffer_t *buffer, zend_stat_sample_t *inp
     __atomic_store_n(&sample->state.busy, 0, __ATOMIC_SEQ_CST);
 }
 
-zend_bool zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
+zend_bool zend_stat_buffer_consume(zend_stat_buffer_t *buffer, zend_stat_buffer_consumer_t zend_stat_buffer_consumer, void *arg, zend_ulong max) {
     zend_stat_sample_t *sample;
     zend_ulong tried = 0;
 
     if (zend_stat_buffer_empty(buffer)) {
-        return 1;
+        return ZEND_STAT_BUFFER_CONSUMER_CONTINUE;
     }
 
-    while (tried++ < buffer->max) {
+    while (tried++ < max) {
         zend_stat_sample_t sampled = zend_stat_sample_empty;
         zend_bool _unbusy = 0,
                   _busy   = 1,
@@ -170,50 +159,23 @@ zend_bool zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
             continue;
         }
 
-        if (!zend_stat_sample_write(&sampled, fd)) {
+        if (zend_stat_buffer_consumer(&sampled, arg) == ZEND_STAT_BUFFER_CONSUMER_STOP) {
             zend_stat_request_release(&sampled.request);
-            return 0;
+            return ZEND_STAT_BUFFER_CONSUMER_STOP;
         }
 
         zend_stat_request_release(&sampled.request);
     }
 
-    return 1;
+    return ZEND_STAT_BUFFER_CONSUMER_CONTINUE;
 }
 
-void zend_stat_buffer_interval_set(zend_stat_buffer_t *buffer, zend_long interval) {
-    __atomic_store_n(&buffer->options.interval, interval * 1000, __ATOMIC_SEQ_CST);
+static zend_bool zend_stat_buffer_write(zend_stat_sample_t *sample, void *arg) {
+    return zend_stat_sample_write(sample, *(int*) arg);
 }
 
-zend_long zend_stat_buffer_interval_get(zend_stat_buffer_t *buffer) {
-    return __atomic_load_n(&buffer->options.interval, __ATOMIC_SEQ_CST);
-}
-
-zend_bool zend_stat_buffer_arginfo_get(zend_stat_buffer_t *buffer) {
-    return __atomic_load_n(&buffer->options.arginfo, __ATOMIC_SEQ_CST);
-}
-
-void zend_stat_buffer_arginfo_set(zend_stat_buffer_t *buffer, zend_bool arginfo) {
-    __atomic_store_n(&buffer->options.arginfo, arginfo, __ATOMIC_SEQ_CST);
-}
-
-zend_bool zend_stat_buffer_samplers_add(zend_stat_buffer_t *buffer) {
-    zend_long samplers = __atomic_add_fetch(&buffer->samplers, 1, __ATOMIC_SEQ_CST),
-              limit    = __atomic_load_n(&buffer->options.samplers, __ATOMIC_SEQ_CST);
-
-    if ((limit <= 0) || (samplers <= limit)) {
-        return 1;
-    }
-
-    return 0;
-}
-
-void zend_stat_buffer_samplers_remove(zend_stat_buffer_t *buffer) {
-    __atomic_sub_fetch(&buffer->samplers, 1, __ATOMIC_SEQ_CST);
-}
-
-void zend_stat_buffer_samplers_set(zend_stat_buffer_t *buffer, zend_long samplers) {
-    __atomic_store_n(&buffer->options.samplers, samplers, __ATOMIC_SEQ_CST);
+zend_bool zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd) {
+    return zend_stat_buffer_consume(buffer, zend_stat_buffer_write, (void*) &fd, buffer->max);
 }
 
 void zend_stat_buffer_shutdown(zend_stat_buffer_t *buffer) {

@@ -25,7 +25,7 @@
 
 static zend_always_inline void zend_stat_stream_yield(zend_stat_io_t *io) {
     zend_long interval =
-        zend_stat_buffer_interval_get(io->buffer) / 1000;
+        zend_stat_sampler_interval_get() / 1000;
 
     usleep(ceil(interval / 2));
 }

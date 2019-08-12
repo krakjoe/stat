@@ -19,9 +19,11 @@
 #ifndef ZEND_STAT_BUFFER_H
 # define ZEND_STAT_BUFFER_H
 
+extern ZEND_FUNCTION(zend_stat_buffer_consume);
+
 typedef struct _zend_stat_buffer_t zend_stat_buffer_t;
 
-zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples, zend_long interval, zend_bool arginfo, zend_long samplers);
+zend_stat_buffer_t* zend_stat_buffer_startup(zend_long samples);
 void zend_stat_buffer_shutdown(zend_stat_buffer_t *);
 
 void zend_stat_buffer_activate(zend_stat_buffer_t *buffer, pid_t pid);
@@ -29,18 +31,15 @@ void zend_stat_buffer_deactivate(zend_stat_buffer_t *buffer, pid_t pid);
 
 #include "zend_stat_sampler.h"
 
+#define ZEND_STAT_BUFFER_CONSUMER_STOP 0
+#define ZEND_STAT_BUFFER_CONSUMER_CONTINUE 1
+
+typedef zend_bool (*zend_stat_buffer_consumer_t)(zend_stat_sample_t *, void *);
+
 double     zend_stat_buffer_started(zend_stat_buffer_t *buffer);
 void       zend_stat_buffer_insert(zend_stat_buffer_t *buffer, zend_stat_sample_t *sample);
 zend_bool  zend_stat_buffer_empty(zend_stat_buffer_t *buffer);
 zend_bool  zend_stat_buffer_dump(zend_stat_buffer_t *buffer, int fd);
+zend_bool  zend_stat_buffer_consume(zend_stat_buffer_t *buffer, zend_stat_buffer_consumer_t zend_stat_buffer_consumer, void *arg, zend_ulong max);
 
-void zend_stat_buffer_interval_set(zend_stat_buffer_t *buffer, zend_long interval);
-zend_long zend_stat_buffer_interval_get(zend_stat_buffer_t *buffer);
-
-void zend_stat_buffer_arginfo_set(zend_stat_buffer_t *buffer, zend_bool arginfo);
-zend_bool zend_stat_buffer_arginfo_get(zend_stat_buffer_t *buffer);
-
-zend_bool zend_stat_buffer_samplers_add(zend_stat_buffer_t *buffer);
-void zend_stat_buffer_samplers_remove(zend_stat_buffer_t *buffer);
-void zend_stat_buffer_samplers_set(zend_stat_buffer_t *buffer, zend_long samplers);
 #endif	/* ZEND_STAT_BUFFER_H */

@@ -83,7 +83,7 @@ const static zend_stat_sample_t zend_stat_sample_empty = {
     .request = {0},
     .elapsed = 0.0,
     .memory = {0, 0},
-    .location = {0},
+    .location = {{0}},
     .symbol = {NULL, NULL, NULL},
     .arginfo.length = 0
 };

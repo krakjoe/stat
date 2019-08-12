@@ -34,8 +34,9 @@ The following configuration directives are available:
 
 | Name           | Default                   | Purpose                                                        |
 |:---------------|:--------------------------|:---------------------------------------------------------------|
-|stat.samples    |`10000`                    | Set to the maximum number of samples in the buffer             |
+|stat.auto       |`On`                       | Disable automatic creation of samplers for every request       |
 |stat.samplers   |`0` (unlimited)            | Set to limit number of concurrent samplers                     |
+|stat.samples    |`10000`                    | Set to the maximum number of samples in the buffer             |
 |stat.interval   |`100`                      | Set interval for sampling in microseconds, minimum 10ms        |
 |stat.arginfo    |`Off`                      | Enable collection of argument info                             |
 |stat.strings    |`32M`                      | Set size of string buffer (supports suffixes, be generous)     |
@@ -107,11 +108,20 @@ The following controls are defined:
 
 | Name           | Control                   | Information                                                    |
 |:---------------|:--------------------------|:---------------------------------------------------------------|
-| interval       | `1<<1`                    | Sets the interval for sampling                                 |
-| arginfo        | `1<<2`                    | Enables/disables the collection of arginfo                     |
-| samplers       | `1<<3`                    | Controls the maximum number of samplers                        |
+| auto           | `1<<1`                    | Enable/disable automatic creation of samplers                  |
+| samplers       | `1<<2`                    | Controls the maximum number of samplers                        |
+| interval       | `1<<3`                    | Sets the interval for sampling                                 |
+| arginfo        | `1<<4`                    | Enables/disables the collection of arginfo                     |
 
 *Note: the specifier 'q' should be used for pack (signed long long in machine byte order)*
+
+### Control: auto
+
+Changing the auto option will effect the subsequent creation of samplers without effecting any currently active samplers.
+
+### Control: samplers
+
+Changing the samplers option will effect the subsequent creation of samplers without effecting currently active samplers.
 
 ### Control: interval
 
@@ -121,9 +131,47 @@ Changing the interval option will effect subsequent ticks of the clock in every 
 
 Changing the arginfo option will effect all subsequently collected samples.
 
-### Control: samplers
+## Stat API:
 
-Changing the samplers option will effect the subsequent creation of samplers without effecting currently active samplers.
+Stat is a first class citizen in PHP, so there are a few API functions to control and interface with Stat:
+
+```php
+<?php
+namespace stat {
+    /**
+    * Shall return the identifier of the current process as identified by Stat
+    **/
+    function pid() : int;
+
+    /**
+    * Shall return seconds elapsed since startup
+    **/
+    function elapsed() : double;
+}
+
+namespace stat\sampler {
+    /**
+    * Shall activate the sampler for the current request
+    **/
+    function activate() : bool;
+
+    /**
+    * Shall detect if the sampler for the current request is active
+    **/
+    function active() : bool;
+
+    /**
+    * Shall deactivate the sampler for the current request
+    **/
+    function deactivate() : bool;
+}
+
+namespace stat\buffer {
+    /* NOT IMPLEMENTED YET */
+    
+}
+?>
+```
 
 ### Startup
 

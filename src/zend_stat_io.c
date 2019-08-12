@@ -166,6 +166,8 @@ static zend_stat_io_type_t zend_stat_io_socket(char *uri, struct sockaddr **sa, 
                 "[STAT] Cannot setup socket, %s is a malformed uri",
                 uri);
         break;
+
+        EMPTY_SWITCH_DEFAULT_CASE();
     }
 
     free(buffer);
@@ -205,7 +207,7 @@ zend_bool zend_stat_io_write(int fd, char *message, size_t length) {
 }
 
 zend_bool zend_stat_io_buffer_alloc(zend_stat_io_buffer_t *buffer, zend_long size) {
-    memset(buffer, 0, sizeof(buffer));
+    memset(buffer, 0, sizeof(zend_stat_io_buffer_t));
 
     buffer->buf = calloc(sizeof(char), size);
 
@@ -279,7 +281,7 @@ void zend_stat_io_buffer_free(zend_stat_io_buffer_t *buffer) {
         free(buffer->buf);
     }
 
-    memset(buffer, 0, sizeof(buffer));
+    memset(buffer, 0, sizeof(zend_stat_io_buffer_t));
 }
 
 static void* zend_stat_io_thread(zend_stat_io_t *io) {

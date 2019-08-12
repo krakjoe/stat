@@ -26,9 +26,10 @@
 typedef enum {
     ZEND_STAT_CONTROL_UNKNOWN  = 0,
     ZEND_STAT_CONTROL_FAILED   = (1<<0),
-    ZEND_STAT_CONTROL_INTERVAL = (1<<1),
-    ZEND_STAT_CONTROL_ARGINFO  = (1<<2),
-    ZEND_STAT_CONTROL_SAMPLERS = (1<<3)
+    ZEND_STAT_CONTROL_AUTO     = (1<<1),
+    ZEND_STAT_CONTROL_SAMPLERS = (1<<2),
+    ZEND_STAT_CONTROL_INTERVAL = (1<<3),
+    ZEND_STAT_CONTROL_ARGINFO  = (1<<4)
 } zend_stat_control_type_t;
 
 typedef struct _zend_stat_control_t {
@@ -65,22 +66,28 @@ static void zend_stat_control(zend_stat_io_t *io, int client) {
         int64_t param = 0;
 
         switch (zend_stat_control_read(client, &param)) {
+            case ZEND_STAT_CONTROL_AUTO:
+                zend_stat_sampler_auto_set((zend_bool) param);
+            break;
+
+            case ZEND_STAT_CONTROL_SAMPLERS:
+                zend_stat_sampler_limit_set((zend_long) param);
+            break;
+
             case ZEND_STAT_CONTROL_INTERVAL:
                 if (param >= ZEND_STAT_INTERVAL_MIN) {
-                    zend_stat_buffer_interval_set(io->buffer, param);
+                    zend_stat_sampler_interval_set((zend_long) param);
                 }
             break;
 
             case ZEND_STAT_CONTROL_ARGINFO:
-                zend_stat_buffer_arginfo_set(io->buffer, (zend_bool) param);
-            break;
-
-            case ZEND_STAT_CONTROL_SAMPLERS:
-                zend_stat_buffer_samplers_set(io->buffer, (zend_long) param);
+                zend_stat_sampler_arginfo_set((zend_bool) param);
             break;
 
             case ZEND_STAT_CONTROL_FAILED:
                 return;
+
+            EMPTY_SWITCH_DEFAULT_CASE();
         }
     }
 }

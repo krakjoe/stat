@@ -22,27 +22,23 @@
 #include "zend_stat_sample.h"
 #include "zend_stat_request.h"
 
-typedef struct _zend_heap_header_t zend_heap_header_t;
+extern ZEND_FUNCTION(zend_stat_sampler_activate);
+extern ZEND_FUNCTION(zend_stat_sampler_active);
+extern ZEND_FUNCTION(zend_stat_sampler_deactivate);
 
-typedef struct _zend_stat_sampler_t {
-    zend_stat_request_t *request;
-    struct zend_stat_sampler_timer_t {
-        pthread_mutex_t mutex;
-        pthread_cond_t  cond;
-        zend_bool       closed;
-        zend_bool       active;
-        pthread_t       thread;
-    } timer;
-    struct {
-        HashTable       strings;
-        HashTable       symbols;
-    } cache;
-    zend_bool           arginfo;
-    zend_stat_buffer_t *buffer;
-    zend_heap_header_t *heap;
-    zend_execute_data  *fp;
-} zend_stat_sampler_t;
+void zend_stat_sampler_auto_set(zend_bool automatic);
+void zend_stat_sampler_buffer_set(zend_stat_buffer_t *buffer);
+void zend_stat_sampler_interval_set(zend_long interval);
+void zend_stat_sampler_limit_set(zend_long interval);
+zend_long zend_stat_sampler_interval_get();
+void zend_stat_sampler_arginfo_set(zend_bool arginfo);
+void zend_stat_sampler_request_set(zend_stat_request_t *request);
 
-void zend_stat_sampler_activate(zend_stat_sampler_t *sampler, zend_stat_request_t *request, zend_stat_buffer_t *buffer);
-void zend_stat_sampler_deactivate(zend_stat_sampler_t *sampler);
+zend_bool zend_stat_sampler_add();
+void zend_stat_sampler_remove();
+
+void zend_stat_sampler_startup(zend_bool automatic, zend_long interval, zend_bool arginfo, zend_long samplers, zend_stat_buffer_t *buffer);
+void zend_stat_sampler_activate(zend_bool start);
+zend_bool zend_stat_sampler_active();
+void zend_stat_sampler_deactivate();
 #endif	/* ZEND_STAT_SAMPLER_H */

@@ -47,8 +47,6 @@ static zend_stat_buffer_t*     zend_stat_buffer = NULL;
 static zend_stat_io_t          zend_stat_stream;
 static zend_stat_io_t          zend_stat_control;
 static double                  zend_stat_started = 0;
-ZEND_TLS zend_stat_sampler_t   zend_stat_sampler;
-ZEND_TLS zend_stat_request_t   zend_stat_request;
 
 static int  zend_stat_startup(zend_extension*);
 static void zend_stat_shutdown(zend_extension *);
@@ -80,6 +78,65 @@ ZEND_STAT_EXTENSION_API zend_extension zend_extension_entry = {
     STANDARD_ZEND_EXTENSION_PROPERTIES
 };
 
+ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(zend_stat_api_returns_bool_arginfo, 0, 0, _IS_BOOL, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(zend_stat_api_returns_long_arginfo, 0, 0, IS_LONG, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(zend_stat_api_returns_double_arginfo, 0, 0, IS_DOUBLE, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(zend_stat_api_returns_array_arginfo, 0, 0, IS_ARRAY, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_FUNCTION(zend_stat_pid)
+{
+    ZEND_PARSE_PARAMETERS_START(0, 0)
+    ZEND_PARSE_PARAMETERS_END();
+
+    RETURN_LONG(zend_stat_pid());
+}
+
+ZEND_FUNCTION(zend_stat_elapsed)
+{
+    ZEND_PARSE_PARAMETERS_START(0, 0)
+    ZEND_PARSE_PARAMETERS_END();
+
+    RETURN_DOUBLE(zend_stat_time());
+}
+
+static zend_bool zend_stat_buffer_consume_u(zend_stat_sample_t *sample, zval *return_value) {
+    array_init(return_value);
+
+    if (sample->type == ZEND_STAT_SAMPLE_MEMORY) {
+        
+    }
+
+    return ZEND_STAT_BUFFER_CONSUMER_STOP;
+}
+
+ZEND_FUNCTION(zend_stat_buffer_consume) 
+{
+    ZEND_PARSE_PARAMETERS_START(0, 0)
+    ZEND_PARSE_PARAMETERS_END();
+
+    zend_stat_buffer_consume(
+        zend_stat_buffer,
+        (zend_stat_buffer_consumer_t) zend_stat_buffer_consume_u, 
+        return_value, 1);
+}
+
+static zend_function_entry zend_stat_api[] = {
+    ZEND_NS_FENTRY("stat",          pid,        ZEND_FN(zend_stat_pid),                zend_stat_api_returns_long_arginfo,   0)
+    ZEND_NS_FENTRY("stat",          elapsed,    ZEND_FN(zend_stat_elapsed),            zend_stat_api_returns_double_arginfo, 0)
+    ZEND_NS_FENTRY("stat\\sampler", activate,   ZEND_FN(zend_stat_sampler_activate),   zend_stat_api_returns_bool_arginfo,   0)
+    ZEND_NS_FENTRY("stat\\sampler", active,     ZEND_FN(zend_stat_sampler_active),     zend_stat_api_returns_bool_arginfo,   0)
+    ZEND_NS_FENTRY("stat\\sampler", deactivate, ZEND_FN(zend_stat_sampler_deactivate), zend_stat_api_returns_bool_arginfo,   0)
+    ZEND_NS_FENTRY("stat\\buffer",  consume,    ZEND_FN(zend_stat_buffer_consume),     zend_stat_api_returns_array_arginfo,  0)
+    ZEND_FE_END
+};
+
 static int zend_stat_startup(zend_extension *ze) {
     zend_stat_ini_startup();
 
@@ -98,11 +155,7 @@ static int zend_stat_startup(zend_extension *ze) {
         return SUCCESS;
     }
 
-    if (!(zend_stat_buffer = zend_stat_buffer_startup(
-            zend_stat_ini_samples,
-            zend_stat_ini_interval,
-            zend_stat_ini_arginfo,
-            zend_stat_ini_samplers))) {
+    if (!(zend_stat_buffer = zend_stat_buffer_startup(zend_stat_ini_samples))) {
         zend_stat_strings_shutdown();
         zend_stat_ini_shutdown();
 
@@ -132,10 +185,19 @@ static int zend_stat_startup(zend_extension *ze) {
         return SUCCESS;
     }
 
+    zend_stat_sampler_startup(
+        zend_stat_ini_auto,
+        zend_stat_ini_interval,
+        zend_stat_ini_arginfo,
+        zend_stat_ini_samplers,
+        zend_stat_buffer);
+
     zend_stat_started = zend_stat_time();
     zend_stat_main    = zend_stat_pid();
 
     ze->handle = 0;
+
+    zend_register_functions(NULL, zend_stat_api, NULL, MODULE_PERSISTENT);
 
     return SUCCESS;
 }
@@ -172,18 +234,7 @@ static void zend_stat_activate(void) {
         return;
     }
 
-    if (!zend_stat_request_create(&zend_stat_request)) {
-        zend_error(E_WARNING,
-            "[STAT] Could not allocate request, "
-            "not activating sampler, may be low on memory");
-        return;
-    }
-
-    if (!zend_stat_buffer_samplers_add(zend_stat_buffer)) {
-        return;
-    }
-
-    zend_stat_sampler_activate(&zend_stat_sampler, &zend_stat_request, zend_stat_buffer);
+    zend_stat_sampler_activate(0);
 }
 
 static void zend_stat_deactivate(void) {
@@ -191,11 +242,7 @@ static void zend_stat_deactivate(void) {
         return;
     }
 
-    zend_stat_sampler_deactivate(&zend_stat_sampler);
-
-    zend_stat_buffer_samplers_remove(zend_stat_buffer);
-
-    zend_stat_request_release(&zend_stat_request);
+    zend_stat_sampler_deactivate();
 }
 
 double zend_stat_time(void) {
