@@ -67,12 +67,7 @@ static zend_bool zend_stat_sample_write_request(zend_stat_io_buffer_t *iob, zend
     }
 
     if (request->method) {
-        if (request->path) {
-            if (!zend_stat_io_buffer_append(iob, ", ", sizeof(", ")-1)) {
-                return 0;
-            }
-        }
-        if (!zend_stat_io_buffer_append(iob, "\"method\": \"", sizeof("\"method\": \"")-1) ||
+        if (!zend_stat_io_buffer_append(iob, ", \"method\": \"", sizeof("\"method\": \"")-1) ||
             !zend_stat_io_buffer_appends(iob, request->method) ||
             !zend_stat_io_buffer_append(iob, "\"", sizeof("\"")-1)) {
             return 0;
@@ -80,12 +75,7 @@ static zend_bool zend_stat_sample_write_request(zend_stat_io_buffer_t *iob, zend
     }
 
     if (request->uri) {
-        if (request->path || request->method) {
-            if (!zend_stat_io_buffer_append(iob, ", ", sizeof(", ")-1)) {
-                return 0;
-            }
-        }
-        if (!zend_stat_io_buffer_append(iob, "\"uri\": \"", sizeof("\"uri\": \"")-1) ||
+        if (!zend_stat_io_buffer_append(iob, ", \"uri\": \"", sizeof("\"uri\": \"")-1) ||
             !zend_stat_io_buffer_appends(iob, request->uri) ||
             !zend_stat_io_buffer_append(iob, "\"", sizeof("\"")-1)) {
             return 0;
